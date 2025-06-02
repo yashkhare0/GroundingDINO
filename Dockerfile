@@ -14,25 +14,28 @@ RUN apt-get -y update && apt-get install -y --no-install-recommends \
          git \
          python3-opencv \
          supervisor \
+         ninja-build \
          ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
 # Set the working directory for all the subsequent Dockerfile instructions.
 WORKDIR /opt/program
 
-RUN git clone https://github.com/IDEA-Research/GroundingDINO.git
+# Clone GroundingDINO and install it with pip
+RUN git clone https://github.com/IDEA-Research/GroundingDINO.git && \
+    cd GroundingDINO && \
+    sed -i 's/torch.utils.cpp_extension.BuildExtension/torch.utils.cpp_extension.BuildExtension.with_options(no_cuda=True)/' setup.py && \
+    pip install -e .
 
-RUN mkdir weights ; cd weights ; wget -q https://github.com/IDEA-Research/GroundingDINO/releases/download/v0.1.0-alpha/groundingdino_swint_ogc.pth ; cd ..
-
-# Use the CUDA already provided by the base image
-ENV PATH=/usr/local/cuda/bin:$PATH
-
-RUN cd GroundingDINO/ && python -m pip install .
+# Download model weights
+RUN mkdir -p weights && \
+    wget -q -P weights https://github.com/IDEA-Research/GroundingDINO/releases/download/v0.1.0-alpha/groundingdino_swint_ogc.pth
 
 # Install FastAPI and Uvicorn for the API service
 RUN pip install fastapi uvicorn
 
-COPY docker_test.py docker_test.py
+# Copy necessary files
+COPY docker_test.py /opt/program/docker_test.py
 COPY api_service.py /opt/program/api_service.py
 COPY supervisord.conf /opt/program/supervisord.conf
 
