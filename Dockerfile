@@ -13,6 +13,7 @@ RUN apt-get -y update && apt-get install -y --no-install-recommends \
          build-essential \
          git \
          python3-opencv \
+         supervisor \
          ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
@@ -23,13 +24,20 @@ RUN git clone https://github.com/IDEA-Research/GroundingDINO.git
 
 RUN mkdir weights ; cd weights ; wget -q https://github.com/IDEA-Research/GroundingDINO/releases/download/v0.1.0-alpha/groundingdino_swint_ogc.pth ; cd ..
 
-RUN conda install -c "nvidia/label/cuda-12.1.1" cuda -y
-ENV CUDA_HOME=$CONDA_PREFIX
-
+# Use the CUDA already provided by the base image
 ENV PATH=/usr/local/cuda/bin:$PATH
 
 RUN cd GroundingDINO/ && python -m pip install .
 
-COPY docker_test.py docker_test.py
+# Install FastAPI and Uvicorn for the API service
+RUN pip install fastapi uvicorn
 
-CMD [ "python", "docker_test.py" ]
+COPY docker_test.py docker_test.py
+COPY api_service.py /opt/program/api_service.py
+COPY supervisord.conf /opt/program/supervisord.conf
+
+# Create directory for supervisor logs
+RUN mkdir -p /var/log/supervisor
+
+# Run supervisor which will start the API service
+CMD ["supervisord", "-c", "/opt/program/supervisord.conf"]
