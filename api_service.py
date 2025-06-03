@@ -1,20 +1,11 @@
 import base64
 import io
 import logging
+import os
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import List, Union
-
-import torch
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from PIL import Image
-from pydantic import BaseModel
-
-# Import from groundingdino-py package
-from groundingdino.util.inference import load_model, predict
-import groundingdino.datasets.transforms as T  # noqa: N812
 
 # Configure logging
 logging.basicConfig(
@@ -22,14 +13,93 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler("/var/log/groundingdino.log"),
     ],
 )
 logger = logging.getLogger("groundingdino")
 
+
+# Debug information
+logger.info(f"Python version: {sys.version}")
+logger.info(f"Environment variables: { {k: v for k, v in os.environ.items() if k.startswith(('CUDA', 'TORCH', 'PATH'))} }")
+logger.info(f"Current directory: {Path.cwd()}")
+logger.info(f"Directory contents: {os.listdir()}")
+if Path("/opt/program/weights").exists():
+    logger.info(f"Weights directory contents: {os.listdir('/opt/program/weights')}")
+else:
+    logger.warning("Weights directory does not exist!")
+
+# Import torch FIRST to ensure C extensions are loaded properly
+import torch  # noqa: E402, I001
+import torchvision  # noqa: E402, I001
+logger.info(f"Torch version: {torch.__version__}")
+logger.info(f"Torchvision version: {torchvision.__version__}")
+logger.info(f"CUDA available: {torch.cuda.is_available()}")
+if torch.cuda.is_available():
+    logger.info(f"CUDA device count: {torch.cuda.device_count()}")
+    logger.info(f"CUDA version: {torch.version.cuda}")
+    logger.info(f"CUDNN version: {torch.backends.cudnn.version()}")
+
+from fastapi import FastAPI, HTTPException  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from PIL import Image  # noqa: E402
+from pydantic import BaseModel  # noqa: E402
+
+# Import from groundingdino-py package AFTER torch is initialized
+try:
+    # Import from groundingdino-py package
+    import groundingdino.datasets.transforms as T  # noqa: N812
+    from groundingdino.util.inference import load_model, predict
+    logger.info("Successfully imported GroundingDINO")
+except Exception as e:
+    logger.error(f"Error importing GroundingDINO: {e}")
+    sys.exit(1)
+
+# Create log directory if it doesn't exist
+Path("/var/log").mkdir(parents=True, exist_ok=True)
+
+# Update logging configuration to include file handler
+file_handler = logging.FileHandler("/var/log/groundingdino.log")
+file_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+logger.addHandler(file_handler)
+
 # Initialize model paths - using pre-downloaded weights
 MODEL_PATH = Path("/opt/program/weights/groundingdino_swint_ogc.pth")
-CONFIG_PATH = Path("/opt/conda/lib/python3.10/site-packages/groundingdino/config/GroundingDINO_SwinT_OGC.py")
+
+# Try to find the config file in multiple possible locations
+try:
+    import groundingdino
+    groundingdino_root = Path(groundingdino.__file__).parent
+    CONFIG_PATH = groundingdino_root / "config" / "GroundingDINO_SwinT_OGC.py"
+    logger.info(f"Discovered config path: {CONFIG_PATH}")
+except Exception as e:
+    logger.error(f"Error finding groundingdino config path: {e}")
+    # Fallback paths
+    CONFIG_PATH = Path("/opt/conda/lib/python3.10/site-packages/groundingdino/config/GroundingDINO_SwinT_OGC.py")
+
+# Check if config path exists, try alternative paths if not
+if not CONFIG_PATH.exists():
+    logger.warning(f"Config path {CONFIG_PATH} does not exist, trying alternatives")
+
+    alternative_paths = [
+        Path("/opt/program/GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py"),
+        Path("/app/src/GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py"),
+        Path.cwd() / "groundingdino" / "config" / "GroundingDINO_SwinT_OGC.py",
+    ]
+
+    for path in alternative_paths:
+        logger.info(f"Trying alternative path: {path}")
+        if path.exists():
+            CONFIG_PATH = path
+            logger.info(f"Found config at: {CONFIG_PATH}")
+            break
+    else:
+        logger.error("Could not find config file in any location!")
+
+# Log paths for debugging
+logger.info(f"Model path: {MODEL_PATH}")
+logger.info(f"Config path: {CONFIG_PATH}")
+logger.info(f"Model path exists: {MODEL_PATH.exists()}")
+logger.info(f"Config path exists: {CONFIG_PATH.exists()}")
 
 # Determine device - with graceful CUDA detection
 try:
@@ -64,12 +134,12 @@ async def lifespan(app: FastAPI):  # noqa: ANN201
             error_msg = f"Model weights file not found: {MODEL_PATH}"
             logger.error(error_msg)
             raise FileNotFoundError(error_msg)
-        
+
         if not CONFIG_PATH.exists():
             error_msg = f"Model config file not found: {CONFIG_PATH}"
             logger.error(error_msg)
             raise FileNotFoundError(error_msg)
-            
+
         try:
             # Try to load the model with the selected device
             logger.info(f"Loading model with {DEVICE}")
@@ -127,24 +197,35 @@ class DetectionResponse(BaseModel):
     boxes: List[BoundingBox]
 
 # Transform for preprocessing images
+class ResizeForGroundingDINO:
+    def __init__(self, size, max_size=None):
+        self.size = size
+        self.max_size = max_size
+
+    def __call__(self, image, target):
+        # Call resize with None for target since we don't have bounding boxes
+        resized_image, _ = T.resize(image, None, self.size, self.max_size)
+        return resized_image, target
+
 transform = T.Compose(
     [
-        T.RandomResize([800], max_size=1333),
+        ResizeForGroundingDINO(800, max_size=1333),   # <- deterministic
         T.ToTensor(),
-        T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-    ]
+        T.Normalize([0.485,0.456,0.406], [0.229,0.224,0.225]),
+    ],
 )
 
 def preprocess_image(image_pil: Image.Image) -> torch.Tensor:
     """
     Preprocess PIL Image for the model.
-    
+
     Args:
         image_pil: PIL Image
-        
+
     Returns:
         Preprocessed image tensor
     """
+    # Following the exact pattern used in GroundingDINO's inference.py
     image_transformed, _ = transform(image_pil, None)
     return image_transformed
 
@@ -154,7 +235,7 @@ async def health_check() -> dict:
     if not hasattr(app.state, "model") or app.state.model is None:
         logger.error("Health check failed: Model not loaded")
         raise HTTPException(status_code=503, detail="Model not loaded")
-    
+
     # If CUDA is being used, check CUDA health
     if DEVICE == "cuda":
         try:
@@ -164,8 +245,8 @@ async def health_check() -> dict:
             logger.debug("CUDA health check passed")
         except Exception as e:
             logger.error(f"CUDA health check failed: {e}")
-            raise HTTPException(status_code=503, detail=f"CUDA health check failed: {e}")
-    
+            raise HTTPException(status_code=503, detail=f"CUDA health check failed: {e}") from e
+
     logger.debug("Health check passed")
     return {"status": "healthy", "device": DEVICE}
 
@@ -175,18 +256,18 @@ async def detect_objects(request: DetectionRequest) -> Union[DetectionResponse, 
     if not hasattr(app.state, "model") or app.state.model is None:
         logger.error("Detection request failed: Model not loaded")
         raise HTTPException(status_code=503, detail="Model not loaded")
-    
+
     try:
         logger.info(f"Processing detection request with prompt: {request.text_prompt}")
-        
+
         # Decode base64 image
         image_bytes = base64.b64decode(request.image)
         image_pil = Image.open(io.BytesIO(image_bytes)).convert("RGB")
         logger.debug(f"Image size: {image_pil.size}")
-        
+
         # Prepare image for model
         image_tensor = preprocess_image(image_pil)
-        
+
         # Perform prediction
         logger.info("Running model prediction")
         try:
@@ -211,14 +292,14 @@ async def detect_objects(request: DetectionRequest) -> Union[DetectionResponse, 
                 )
             else:
                 raise e
-        
+
         # Convert to response format
         response_boxes = []
         for i in range(boxes.shape[0]):
             box = boxes[i]
             logit = logits[i]
             phrase = phrases[i]
-            
+
             response_boxes.append(
                 BoundingBox(
                     x_min=float(box[0]),
@@ -229,15 +310,16 @@ async def detect_objects(request: DetectionRequest) -> Union[DetectionResponse, 
                     class_name=phrase,
                 ),
             )
-        
+
         logger.info(f"Detection complete, found {len(response_boxes)} objects")
         return DetectionResponse(boxes=response_boxes)
-    
+
     except Exception as e:
         logger.exception(f"Error during detection: {e}")
         raise HTTPException(status_code=500, detail=f"Error processing image: {e!s}") from e
 
 if __name__ == "__main__":
     import uvicorn
-    logger.info("Starting GroundingDINO API service")
-    uvicorn.run(app, host="0.0.0.0", port=8080)  # noqa: S104
+    port = int(os.getenv("KIZUNA_LOCATOR_GROUNDINGDINO_PORT", 8080))  # noqa: PLW1508
+    logger.info(f"Starting GroundingDINO API server on port {port}")
+    uvicorn.run(app, host="0.0.0.0", port=port)  # noqa: S104

@@ -1,4 +1,4 @@
-FROM pytorch/pytorch:2.1.2-cuda12.1-cudnn8-runtime
+FROM pytorch/pytorch:2.1.2-cuda12.1-cudnn8-devel
 ARG DEBIAN_FRONTEND=noninteractive
 
 ENV CUDA_HOME=/usr/local/cuda \
@@ -7,40 +7,45 @@ ENV CUDA_HOME=/usr/local/cuda \
 
 RUN conda update conda -y
 
-# Install libraries in the brand new image. 
+# Install libraries
 RUN apt-get -y update && apt-get install -y --no-install-recommends \
          wget \
          build-essential \
          git \
-         python3-opencv \
-         supervisor \
          ninja-build \
-         ca-certificates && \
+         supervisor \
+         ca-certificates \
+         libsm6 \
+         libxext6 \
+         libxrender-dev \
+         libglib2.0-0 \
+         libgl1-mesa-glx && \
     rm -rf /var/lib/apt/lists/*
+
+# Install opencv via pip instead of apt to avoid dependency issues
+RUN pip install opencv-python-headless
 
 # Set the working directory for all the subsequent Dockerfile instructions.
 WORKDIR /opt/program
 
-# Clone GroundingDINO and install it with pip
-RUN git clone https://github.com/IDEA-Research/GroundingDINO.git && \
-    cd GroundingDINO && \
-    sed -i 's/torch.utils.cpp_extension.BuildExtension/torch.utils.cpp_extension.BuildExtension.with_options(no_cuda=True)/' setup.py && \
-    pip install -e .
+# Copy the GroundingDINO files into the container
+COPY . /opt/program/GroundingDINO/
 
-# Download model weights
-RUN mkdir -p weights && \
-    wget -q -P weights https://github.com/IDEA-Research/GroundingDINO/releases/download/v0.1.0-alpha/groundingdino_swint_ogc.pth
+RUN mkdir weights ; cd weights ; wget -q https://github.com/IDEA-Research/GroundingDINO/releases/download/v0.1.0-alpha/groundingdino_swint_ogc.pth ; cd ..
 
-# Install FastAPI and Uvicorn for the API service
-RUN pip install fastapi uvicorn
+# Verify CUDA setup
+RUN ls -la /usr/local/cuda/bin/nvcc && \
+    echo "CUDA_HOME: $CUDA_HOME" && \
+    python -c "import torch; print('CUDA available:', torch.cuda.is_available()); print('CUDA version:', torch.version.cuda); print('CUDNN version:', torch.backends.cudnn.version())"
 
-# Copy necessary files
-COPY docker_test.py /opt/program/docker_test.py
-COPY api_service.py /opt/program/api_service.py
-COPY supervisord.conf /opt/program/supervisord.conf
+# Install GroundingDINO
+RUN cd GroundingDINO/ && python -m pip install -e .
 
-# Create directory for supervisor logs
+# Install FastAPI and other dependencies for the API service
+RUN pip install fastapi uvicorn pydantic requests
+
+# Create log directory for supervisor
 RUN mkdir -p /var/log/supervisor
 
-# Run supervisor which will start the API service
-CMD ["supervisord", "-c", "/opt/program/supervisord.conf"]
+# Start with supervisord
+CMD ["/usr/bin/supervisord", "-c", "/opt/program/GroundingDINO/supervisord.conf"]
