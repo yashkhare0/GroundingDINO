@@ -1,7 +1,8 @@
 import os
 import sys
 from pathlib import Path
-import cv2
+
+import cv2  # noqa: F401
 import torch
 
 from groundingdino.util.inference import annotate, load_image, load_model, predict
