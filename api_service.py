@@ -197,22 +197,13 @@ class DetectionResponse(BaseModel):
     boxes: List[BoundingBox]
 
 # Transform for preprocessing images
-class ResizeForGroundingDINO:
-    def __init__(self, size, max_size=None):
-        self.size = size
-        self.max_size = max_size
-
-    def __call__(self, image, target):
-        # Call resize with None for target since we don't have bounding boxes
-        resized_image, _ = T.resize(image, None, self.size, self.max_size)
-        return resized_image, target
-
+# Remove the custom ResizeForGroundingDINO class and use the official transforms
 transform = T.Compose(
     [
-        ResizeForGroundingDINO(800, max_size=1333),   # <- deterministic
+        T.RandomResize([800], max_size=1333),
         T.ToTensor(),
-        T.Normalize([0.485,0.456,0.406], [0.229,0.224,0.225]),
-    ],
+        T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+    ]
 )
 
 def preprocess_image(image_pil: Image.Image) -> torch.Tensor:
@@ -300,12 +291,21 @@ async def detect_objects(request: DetectionRequest) -> Union[DetectionResponse, 
             logit = logits[i]
             phrase = phrases[i]
 
+            # GroundingDINO returns boxes in (center_x, center_y, width, height) format
+            # Convert to (x_min, y_min, x_max, y_max) format
+            center_x, center_y, width, height = box[0], box[1], box[2], box[3]
+            
+            x_min = center_x - width / 2
+            y_min = center_y - height / 2
+            x_max = center_x + width / 2
+            y_max = center_y + height / 2
+
             response_boxes.append(
                 BoundingBox(
-                    x_min=float(box[0]),
-                    y_min=float(box[1]),
-                    x_max=float(box[2]),
-                    y_max=float(box[3]),
+                    x_min=float(x_min),
+                    y_min=float(y_min),
+                    x_max=float(x_max),
+                    y_max=float(y_max),
                     score=float(logit),
                     class_name=phrase,
                 ),
