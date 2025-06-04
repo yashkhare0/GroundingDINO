@@ -8,7 +8,6 @@ import colorsys
 import datetime
 import functools
 import io
-import json
 import os
 import pickle
 import subprocess
@@ -35,7 +34,7 @@ class SmoothedValue(object):
     window or the global series average.
     """
 
-    def __init__(self, window_size=20, fmt=None):
+    def __init__(self, window_size=20, fmt=None) -> None:
         if fmt is None:
             fmt = "{median:.4f} ({global_avg:.4f})"
         self.deque = deque(maxlen=window_size)
@@ -43,15 +42,13 @@ class SmoothedValue(object):
         self.count = 0
         self.fmt = fmt
 
-    def update(self, value, n=1):
+    def update(self, value, n=1) -> None:
         self.deque.append(value)
         self.count += n
         self.total += value * n
 
-    def synchronize_between_processes(self):
-        """
-        Warning: does not synchronize the deque!
-        """
+    def synchronize_between_processes(self) -> None:
+        """Warning: does not synchronize the deque!."""
         if not is_dist_avail_and_initialized():
             return
         t = torch.tensor([self.count, self.total], dtype=torch.float64, device="cuda")
@@ -75,10 +72,7 @@ class SmoothedValue(object):
 
     @property
     def global_avg(self):
-        if os.environ.get("SHILONG_AMP", None) == "1":
-            eps = 1e-4
-        else:
-            eps = 1e-6
+        eps = 0.0001 if os.environ.get("SHILONG_AMP", None) == "1" else 1e-06
         return self.total / (self.count + eps)
 
     @property
@@ -89,7 +83,7 @@ class SmoothedValue(object):
     def value(self):
         return self.deque[-1]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.fmt.format(
             median=self.median,
             avg=self.avg,
@@ -118,7 +112,7 @@ def all_gather_cpu(data):
     Args:
         data: any picklable object
     Returns:
-        list[data]: list of data gathered from each rank
+        list[data]: list of data gathered from each rank.
     """
 
     world_size = get_world_size()
@@ -141,7 +135,6 @@ def all_gather_cpu(data):
     if cpu_group is None:
         dist.all_gather(size_list, local_size)
     else:
-        print("gathering on cpu")
         dist.all_gather(size_list, local_size, group=cpu_group)
     size_list = [int(size.item()) for size in size_list]
     max_size = max(size_list)
@@ -156,7 +149,7 @@ def all_gather_cpu(data):
         tensor_list.append(torch.empty((max_size,), dtype=torch.uint8, device=device))
     if local_size != max_size:
         padding = torch.empty(
-            size=(max_size - local_size,), dtype=torch.uint8, device=device
+            size=(max_size - local_size,), dtype=torch.uint8, device=device,
         )
         tensor = torch.cat((tensor, padding), dim=0)
     if cpu_group is None:
@@ -180,7 +173,7 @@ def all_gather(data):
     Args:
         data: any picklable object
     Returns:
-        list[data]: list of data gathered from each rank
+        list[data]: list of data gathered from each rank.
     """
 
     if os.getenv("CPU_REDUCE") == "1":
@@ -210,7 +203,7 @@ def all_gather(data):
         tensor_list.append(torch.empty((max_size,), dtype=torch.uint8, device="cuda"))
     if local_size != max_size:
         padding = torch.empty(
-            size=(max_size - local_size,), dtype=torch.uint8, device="cuda"
+            size=(max_size - local_size,), dtype=torch.uint8, device="cuda",
         )
         tensor = torch.cat((tensor, padding), dim=0)
     dist.all_gather(tensor_list, tensor)
@@ -246,16 +239,15 @@ def reduce_dict(input_dict, average=True):
         dist.all_reduce(values)
         if average:
             values /= world_size
-        reduced_dict = {k: v for k, v in zip(names, values)}
-    return reduced_dict
+        return dict(zip(names, values))
 
 
 class MetricLogger(object):
-    def __init__(self, delimiter="\t"):
+    def __init__(self, delimiter="\t") -> None:
         self.meters = defaultdict(SmoothedValue)
         self.delimiter = delimiter
 
-    def update(self, **kwargs):
+    def update(self, **kwargs) -> None:
         for k, v in kwargs.items():
             if isinstance(v, torch.Tensor):
                 v = v.item()
@@ -268,10 +260,10 @@ class MetricLogger(object):
         if attr in self.__dict__:
             return self.__dict__[attr]
         raise AttributeError(
-            "'{}' object has no attribute '{}'".format(type(self).__name__, attr)
+            "'{}' object has no attribute '{}'".format(type(self).__name__, attr),
         )
 
-    def __str__(self):
+    def __str__(self) -> str:
         loss_str = []
         for name, meter in self.meters.items():
             # print(name, str(meter))
@@ -280,18 +272,15 @@ class MetricLogger(object):
                 loss_str.append("{}: {}".format(name, str(meter)))
         return self.delimiter.join(loss_str)
 
-    def synchronize_between_processes(self):
+    def synchronize_between_processes(self) -> None:
         for meter in self.meters.values():
             meter.synchronize_between_processes()
 
-    def add_meter(self, name, meter):
+    def add_meter(self, name, meter) -> None:
         self.meters[name] = meter
 
     def log_every(self, iterable, print_freq, header=None, logger=None):
-        if logger is None:
-            print_func = print
-        else:
-            print_func = logger.info
+        print_func = print if logger is None else logger.info
 
         i = 0
         if not header:
@@ -311,7 +300,7 @@ class MetricLogger(object):
                     "time: {time}",
                     "data: {data}",
                     "max mem: {memory:.0f}",
-                ]
+                ],
             )
         else:
             log_msg = self.delimiter.join(
@@ -322,7 +311,7 @@ class MetricLogger(object):
                     "{meters}",
                     "time: {time}",
                     "data: {data}",
-                ]
+                ],
             )
         MB = 1024.0 * 1024.0
         for obj in iterable:
@@ -343,7 +332,7 @@ class MetricLogger(object):
                             time=str(iter_time),
                             data=str(data_time),
                             memory=torch.cuda.max_memory_allocated() / MB,
-                        )
+                        ),
                     )
                 else:
                     print_func(
@@ -354,7 +343,7 @@ class MetricLogger(object):
                             meters=str(self),
                             time=str(iter_time),
                             data=str(data_time),
-                        )
+                        ),
                     )
             i += 1
             end = time.time()
@@ -362,12 +351,12 @@ class MetricLogger(object):
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         print_func(
             "{} Total time: {} ({:.4f} s / it)".format(
-                header, total_time_str, total_time / len(iterable)
-            )
+                header, total_time_str, total_time / len(iterable),
+            ),
         )
 
 
-def get_sha():
+def get_sha() -> str:
     cwd = os.path.dirname(os.path.abspath(__file__))
 
     def _run(command):
@@ -384,8 +373,7 @@ def get_sha():
         branch = _run(["git", "rev-parse", "--abbrev-ref", "HEAD"])
     except Exception:
         pass
-    message = f"sha: {sha}, status: {diff}, branch: {branch}"
-    return message
+    return f"sha: {sha}, status: {diff}, branch: {branch}"
 
 
 def collate_fn(batch):
@@ -405,7 +393,7 @@ def _max_by_axis(the_list):
 
 
 class NestedTensor(object):
-    def __init__(self, tensors, mask: Optional[Tensor]):
+    def __init__(self, tensors, mask: Optional[Tensor]) -> None:
         self.tensors = tensors
         self.mask = mask
         if mask == "auto":
@@ -417,8 +405,8 @@ class NestedTensor(object):
             else:
                 raise ValueError(
                     "tensors dim must be 3 or 4 but {}({})".format(
-                        self.tensors.dim(), self.tensors.shape
-                    )
+                        self.tensors.dim(), self.tensors.shape,
+                    ),
                 )
 
     def imgsize(self):
@@ -431,7 +419,7 @@ class NestedTensor(object):
         return res
 
     def to(self, device):
-        # type: (Device) -> NestedTensor # noqa
+        # type: (Device) -> NestedTensor
         cast_tensor = self.tensors.to(device)
         mask = self.mask
         if mask is not None:
@@ -443,15 +431,14 @@ class NestedTensor(object):
 
     def to_img_list_single(self, tensor, mask):
         assert tensor.dim() == 3, "dim of tensor should be 3 but {}".format(
-            tensor.dim()
+            tensor.dim(),
         )
         maxH = (~mask).sum(0).max()
         maxW = (~mask).sum(1).max()
-        img = tensor[:, :maxH, :maxW]
-        return img
+        return tensor[:, :maxH, :maxW]
 
     def to_img_list(self):
-        """remove the padding and convert to img list
+        """Remove the padding and convert to img list.
 
         Returns:
             [type]: [description]
@@ -473,7 +460,7 @@ class NestedTensor(object):
     def decompose(self):
         return self.tensors, self.mask
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self.tensors)
 
     @property
@@ -492,7 +479,7 @@ def nested_tensor_from_tensor_list(tensor_list: List[Tensor]):
         # TODO make it support different-sized images
         max_size = _max_by_axis([list(img.shape) for img in tensor_list])
         # min_size = tuple(min(s) for s in zip(*[img.shape for img in tensor_list]))
-        batch_shape = [len(tensor_list)] + max_size
+        batch_shape = [len(tensor_list), *max_size]
         b, c, h, w = batch_shape
         dtype = tensor_list[0].dtype
         device = tensor_list[0].device
@@ -513,7 +500,7 @@ def _onnx_nested_tensor_from_tensor_list(tensor_list: List[Tensor]) -> NestedTen
     max_size = []
     for i in range(tensor_list[0].dim()):
         max_size_i = torch.max(
-            torch.stack([img.shape[i] for img in tensor_list]).to(torch.float32)
+            torch.stack([img.shape[i] for img in tensor_list]).to(torch.float32),
         ).to(torch.int64)
         max_size.append(max_size_i)
     max_size = tuple(max_size)
@@ -527,13 +514,13 @@ def _onnx_nested_tensor_from_tensor_list(tensor_list: List[Tensor]) -> NestedTen
     for img in tensor_list:
         padding = [(s1 - s2) for s1, s2 in zip(max_size, tuple(img.shape))]
         padded_img = torch.nn.functional.pad(
-            img, (0, padding[2], 0, padding[1], 0, padding[0])
+            img, (0, padding[2], 0, padding[1], 0, padding[0]),
         )
         padded_imgs.append(padded_img)
 
         m = torch.zeros_like(img[0], dtype=torch.int, device=img.device)
         padded_mask = torch.nn.functional.pad(
-            m, (0, padding[2], 0, padding[1]), "constant", 1
+            m, (0, padding[2], 0, padding[1]), "constant", 1,
         )
         padded_masks.append(padded_mask.to(torch.bool))
 
@@ -543,15 +530,13 @@ def _onnx_nested_tensor_from_tensor_list(tensor_list: List[Tensor]) -> NestedTen
     return NestedTensor(tensor, mask=mask)
 
 
-def setup_for_distributed(is_master):
-    """
-    This function disables printing when not in master process
-    """
+def setup_for_distributed(is_master) -> None:
+    """This function disables printing when not in master process."""
     import builtins as __builtin__
 
     builtin_print = __builtin__.print
 
-    def print(*args, **kwargs):
+    def print(*args, **kwargs) -> None:
         force = kwargs.pop("force", False)
         if is_master or force:
             builtin_print(*args, **kwargs)
@@ -559,12 +544,10 @@ def setup_for_distributed(is_master):
     __builtin__.print = print
 
 
-def is_dist_avail_and_initialized():
+def is_dist_avail_and_initialized() -> bool:
     if not dist.is_available():
         return False
-    if not dist.is_initialized():
-        return False
-    return True
+    return dist.is_initialized()
 
 
 def get_world_size():
@@ -583,12 +566,12 @@ def is_main_process():
     return get_rank() == 0
 
 
-def save_on_master(*args, **kwargs):
+def save_on_master(*args, **kwargs) -> None:
     if is_main_process():
         torch.save(*args, **kwargs)
 
 
-def init_distributed_mode(args):
+def init_distributed_mode(args) -> None:
     if (
         "WORLD_SIZE" in os.environ and os.environ["WORLD_SIZE"] != ""
     ):  # 'RANK' in os.environ and
@@ -607,41 +590,21 @@ def init_distributed_mode(args):
         # args.world_size = args.world_size * local_world_size
         # args.gpu = args.local_rank = int(os.environ['LOCAL_RANK'])
         # args.rank = args.rank * local_world_size + args.local_rank
-        print(
-            "world size: {}, rank: {}, local rank: {}".format(
-                args.world_size, args.rank, args.local_rank
-            )
-        )
-        print(json.dumps(dict(os.environ), indent=2))
     elif "SLURM_PROCID" in os.environ:
         args.rank = int(os.environ["SLURM_PROCID"])
         args.gpu = args.local_rank = int(os.environ["SLURM_LOCALID"])
         args.world_size = int(os.environ["SLURM_NPROCS"])
 
-        print(
-            "world size: {}, world rank: {}, local rank: {}, device_count: {}".format(
-                args.world_size, args.rank, args.local_rank, torch.cuda.device_count()
-            )
-        )
     else:
-        print("Not using distributed mode")
         args.distributed = False
         args.world_size = 1
         args.rank = 0
         args.local_rank = 0
         return
 
-    print(
-        "world_size:{} rank:{} local_rank:{}".format(
-            args.world_size, args.rank, args.local_rank
-        )
-    )
     args.distributed = True
     torch.cuda.set_device(args.local_rank)
     args.dist_backend = "nccl"
-    print(
-        "| distributed init (rank {}): {}".format(args.rank, args.dist_url), flush=True
-    )
 
     torch.distributed.init_process_group(
         backend=args.dist_backend,
@@ -650,15 +613,13 @@ def init_distributed_mode(args):
         init_method=args.dist_url,
     )
 
-    print("Before torch.distributed.barrier()")
     torch.distributed.barrier()
-    print("End torch.distributed.barrier()")
     setup_for_distributed(args.rank == 0)
 
 
 @torch.no_grad()
 def accuracy(output, target, topk=(1,)):
-    """Computes the precision@k for the specified values of k"""
+    """Computes the precision@k for the specified values of k."""
     if target.numel() == 0:
         return [torch.zeros([], device=output.device)]
     maxk = max(topk)
@@ -677,19 +638,18 @@ def accuracy(output, target, topk=(1,)):
 
 @torch.no_grad()
 def accuracy_onehot(pred, gt):
-    """_summary_
+    """_summary_.
 
     Args:
         pred (_type_): n, c
         gt (_type_): n, c
     """
     tp = ((pred - gt).abs().sum(-1) < 1e-4).float().sum()
-    acc = tp / gt.shape[0] * 100
-    return acc
+    return tp / gt.shape[0] * 100
 
 
 def interpolate(
-    input, size=None, scale_factor=None, mode="nearest", align_corners=None
+    input, size=None, scale_factor=None, mode="nearest", align_corners=None,
 ):
     # type: (Tensor, Optional[List[int]], Optional[float], str, Optional[bool]) -> Tensor
     """
@@ -700,7 +660,7 @@ def interpolate(
     if __torchvision_need_compat_flag < 0.7:
         if input.numel() > 0:
             return torch.nn.functional.interpolate(
-                input, size, scale_factor, mode, align_corners
+                input, size, scale_factor, mode, align_corners,
             )
 
         output_shape = _output_size(2, input, size, scale_factor)
@@ -708,7 +668,7 @@ def interpolate(
         return _new_empty_tensor(input, output_shape)
     else:
         return torchvision.ops.misc.interpolate(
-            input, size, scale_factor, mode, align_corners
+            input, size, scale_factor, mode, align_corners,
         )
 
 
@@ -725,8 +685,8 @@ class color_sys:
                     [
                         int(j * 255)
                         for j in colorsys.hls_to_rgb(hue, lightness, saturation)
-                    ]
-                )
+                    ],
+                ),
             )
         self.colors = colors
 

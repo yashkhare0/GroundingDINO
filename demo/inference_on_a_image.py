@@ -1,6 +1,5 @@
 import argparse
 import os
-import sys
 
 import numpy as np
 import torch
@@ -8,7 +7,6 @@ from PIL import Image, ImageDraw, ImageFont
 
 import groundingdino.datasets.transforms as T
 from groundingdino.models import build_model
-from groundingdino.util import box_ops
 from groundingdino.util.slconfig import SLConfig
 from groundingdino.util.utils import clean_state_dict, get_phrases_from_posmap
 from groundingdino.util.vl_utils import create_positive_map_from_span
@@ -64,7 +62,7 @@ def load_image(image_path):
             T.RandomResize([800], max_size=1333),
             T.ToTensor(),
             T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-        ]
+        ],
     )
     image, _ = transform(image_pil, None)  # 3, h, w
     return image_pil, image
@@ -75,10 +73,9 @@ def load_model(model_config_path, model_checkpoint_path, cpu_only=False):
     args.device = "cuda" if not cpu_only else "cpu"
     model = build_model(args)
     checkpoint = torch.load(model_checkpoint_path, map_location="cpu")
-    load_res = model.load_state_dict(
-        clean_state_dict(checkpoint["model"]), strict=False
+    model.load_state_dict(
+        clean_state_dict(checkpoint["model"]), strict=False,
     )
-    print(load_res)
     _ = model.eval()
     return model
 
@@ -121,9 +118,9 @@ def get_grounding_output(
         tokenized = tokenlizer(caption)
         # build pred
         pred_phrases = []
-        for logit, box in zip(logits_filt, boxes_filt):
+        for logit, _box in zip(logits_filt, boxes_filt):
             pred_phrase = get_phrases_from_posmap(
-                logit > text_threshold, tokenized, tokenlizer
+                logit > text_threshold, tokenized, tokenlizer,
             )
             if with_logits:
                 pred_phrases.append(pred_phrase + f"({str(logit.max().item())[:4]})")
@@ -132,9 +129,9 @@ def get_grounding_output(
     else:
         # given-phrase mode
         positive_maps = create_positive_map_from_span(
-            model.tokenizer(text_prompt), token_span=token_spans
+            model.tokenizer(text_prompt), token_span=token_spans,
         ).to(
-            image.device
+            image.device,
         )  # n_phrase, 256
 
         logits_for_phrases = positive_maps @ logits.T  # n_phrase, nq
@@ -153,7 +150,7 @@ def get_grounding_output(
             if with_logits:
                 logit_phr_num = logit_phr[filt_mask]
                 all_phrases.extend(
-                    [phrase + f"({str(logit.item())[:4]})" for logit in logit_phr_num]
+                    [phrase + f"({str(logit.item())[:4]})" for logit in logit_phr_num],
                 )
             else:
                 all_phrases.extend([phrase for _ in range(len(filt_mask))])
@@ -167,7 +164,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser("Grounding DINO example", add_help=True)
     parser.add_argument(
-        "--config_file", "-c", type=str, required=True, help="path to config file"
+        "--config_file", "-c", type=str, required=True, help="path to config file",
     )
     parser.add_argument(
         "--checkpoint_path",
@@ -177,10 +174,10 @@ if __name__ == "__main__":
         help="path to checkpoint file",
     )
     parser.add_argument(
-        "--image_path", "-i", type=str, required=True, help="path to image file"
+        "--image_path", "-i", type=str, required=True, help="path to image file",
     )
     parser.add_argument(
-        "--text_prompt", "-t", type=str, required=True, help="text prompt"
+        "--text_prompt", "-t", type=str, required=True, help="text prompt",
     )
     parser.add_argument(
         "--output_dir",
@@ -192,10 +189,10 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--box_threshold", type=float, default=0.3, help="box threshold"
+        "--box_threshold", type=float, default=0.3, help="box threshold",
     )
     parser.add_argument(
-        "--text_threshold", type=float, default=0.25, help="text threshold"
+        "--text_threshold", type=float, default=0.25, help="text threshold",
     )
     parser.add_argument(
         "--token_spans",
@@ -209,7 +206,7 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--cpu-only", action="store_true", help="running on cpu only!, default=False"
+        "--cpu-only", action="store_true", help="running on cpu only!, default=False",
     )
     args = parser.parse_args()
 
@@ -236,7 +233,6 @@ if __name__ == "__main__":
     # set the text_threshold to None if token_spans is set.
     if token_spans is not None:
         text_threshold = None
-        print("Using token_spans. Set the text_threshold to None.")
 
     # run model
     boxes_filt, pred_phrases = get_grounding_output(

@@ -21,7 +21,7 @@ logger = logging.getLogger("groundingdino")
 # Debug information
 logger.info(f"Python version: {sys.version}")
 logger.info(
-    f"Environment variables: { {k: v for k, v in os.environ.items() if k.startswith(('CUDA', 'TORCH', 'PATH'))} }"
+    f"Environment variables: { {k: v for k, v in os.environ.items() if k.startswith(('CUDA', 'TORCH', 'PATH'))} }",
 )
 logger.info(f"Current directory: {Path.cwd()}")
 logger.info(f"Directory contents: {os.listdir()}")
@@ -31,8 +31,8 @@ else:
     logger.warning("Weights directory does not exist!")
 
 # Import torch FIRST to ensure C extensions are loaded properly
-import torch  # noqa: E402, I001
-import torchvision  # noqa: E402, I001
+import torch  # noqa: E402
+import torchvision  # noqa: E402
 
 logger.info(f"Torch version: {torch.__version__}")
 logger.info(f"Torchvision version: {torchvision.__version__}")
@@ -64,7 +64,7 @@ Path("/var/log").mkdir(parents=True, exist_ok=True)
 # Update logging configuration to include file handler
 file_handler = logging.FileHandler("/var/log/groundingdino.log")
 file_handler.setFormatter(
-    logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"),
 )
 logger.addHandler(file_handler)
 
@@ -82,7 +82,7 @@ except Exception as e:
     logger.error(f"Error finding groundingdino config path: {e}")
     # Fallback paths
     CONFIG_PATH = Path(
-        "/opt/conda/lib/python3.10/site-packages/groundingdino/config/GroundingDINO_SwinT_OGC.py"
+        "/opt/conda/lib/python3.10/site-packages/groundingdino/config/GroundingDINO_SwinT_OGC.py",
     )
 
 # Check if config path exists, try alternative paths if not
@@ -91,7 +91,7 @@ if not CONFIG_PATH.exists():
 
     alternative_paths = [
         Path(
-            "/opt/program/GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py"
+            "/opt/program/GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py",
         ),
         Path("/app/src/GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py"),
         Path.cwd() / "groundingdino" / "config" / "GroundingDINO_SwinT_OGC.py",
@@ -156,17 +156,17 @@ async def lifespan(app: FastAPI):  # noqa: ANN201
             # Try to load the model with the selected device
             logger.info(f"Loading model with {DEVICE}")
             app.state.model = load_model(
-                str(CONFIG_PATH), str(MODEL_PATH), device=DEVICE
+                str(CONFIG_PATH), str(MODEL_PATH), device=DEVICE,
             )
             logger.info("GroundingDINO model loaded successfully")
         except Exception as device_error:
             # If loading with CUDA fails, try CPU as fallback
             if DEVICE == "cuda":
                 logger.warning(
-                    f"Failed to load model with CUDA: {device_error}. Trying CPU instead."
+                    f"Failed to load model with CUDA: {device_error}. Trying CPU instead.",
                 )
                 app.state.model = load_model(
-                    str(CONFIG_PATH), str(MODEL_PATH), device="cpu"
+                    str(CONFIG_PATH), str(MODEL_PATH), device="cpu",
                 )
                 logger.info("GroundingDINO model loaded successfully with CPU")
             else:
@@ -226,7 +226,7 @@ transform = T.Compose(
         T.RandomResize([800], max_size=1333),
         T.ToTensor(),
         T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-    ]
+    ],
 )
 
 
@@ -262,7 +262,7 @@ async def health_check() -> dict:
         except Exception as e:
             logger.error(f"CUDA health check failed: {e}")
             raise HTTPException(
-                status_code=503, detail=f"CUDA health check failed: {e}"
+                status_code=503, detail=f"CUDA health check failed: {e}",
             ) from e
 
     logger.debug("Health check passed")
@@ -347,7 +347,7 @@ async def detect_objects(
     except Exception as e:
         logger.exception(f"Error during detection: {e}")
         raise HTTPException(
-            status_code=500, detail=f"Error processing image: {e!s}"
+            status_code=500, detail=f"Error processing image: {e!s}",
         ) from e
 
 

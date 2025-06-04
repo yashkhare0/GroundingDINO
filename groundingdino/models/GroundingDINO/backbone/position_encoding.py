@@ -16,9 +16,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 # ------------------------------------------------------------------------
 
-"""
-Various positional encodings for the transformer.
-"""
+"""Various positional encodings for the transformer."""
 import math
 
 import torch
@@ -34,8 +32,8 @@ class PositionEmbeddingSine(nn.Module):
     """
 
     def __init__(
-        self, num_pos_feats=64, temperature=10000, normalize=False, scale=None
-    ):
+        self, num_pos_feats=64, temperature=10000, normalize=False, scale=None,
+    ) -> None:
         super().__init__()
         self.num_pos_feats = num_pos_feats
         self.temperature = temperature
@@ -68,13 +66,12 @@ class PositionEmbeddingSine(nn.Module):
         pos_x = x_embed[:, :, :, None] / dim_t
         pos_y = y_embed[:, :, :, None] / dim_t
         pos_x = torch.stack(
-            (pos_x[:, :, :, 0::2].sin(), pos_x[:, :, :, 1::2].cos()), dim=4
+            (pos_x[:, :, :, 0::2].sin(), pos_x[:, :, :, 1::2].cos()), dim=4,
         ).flatten(3)
         pos_y = torch.stack(
-            (pos_y[:, :, :, 0::2].sin(), pos_y[:, :, :, 1::2].cos()), dim=4
+            (pos_y[:, :, :, 0::2].sin(), pos_y[:, :, :, 1::2].cos()), dim=4,
         ).flatten(3)
-        pos = torch.cat((pos_y, pos_x), dim=3).permute(0, 3, 1, 2)
-        return pos
+        return torch.cat((pos_y, pos_x), dim=3).permute(0, 3, 1, 2)
 
 
 class PositionEmbeddingSineHW(nn.Module):
@@ -90,7 +87,7 @@ class PositionEmbeddingSineHW(nn.Module):
         temperatureW=10000,
         normalize=False,
         scale=None,
-    ):
+    ) -> None:
         super().__init__()
         self.num_pos_feats = num_pos_feats
         self.temperatureH = temperatureH
@@ -130,30 +127,27 @@ class PositionEmbeddingSineHW(nn.Module):
         pos_y = y_embed[:, :, :, None] / dim_ty
 
         pos_x = torch.stack(
-            (pos_x[:, :, :, 0::2].sin(), pos_x[:, :, :, 1::2].cos()), dim=4
+            (pos_x[:, :, :, 0::2].sin(), pos_x[:, :, :, 1::2].cos()), dim=4,
         ).flatten(3)
         pos_y = torch.stack(
-            (pos_y[:, :, :, 0::2].sin(), pos_y[:, :, :, 1::2].cos()), dim=4
+            (pos_y[:, :, :, 0::2].sin(), pos_y[:, :, :, 1::2].cos()), dim=4,
         ).flatten(3)
-        pos = torch.cat((pos_y, pos_x), dim=3).permute(0, 3, 1, 2)
+        return torch.cat((pos_y, pos_x), dim=3).permute(0, 3, 1, 2)
 
         # import ipdb; ipdb.set_trace()
 
-        return pos
 
 
 class PositionEmbeddingLearned(nn.Module):
-    """
-    Absolute pos embedding, learned.
-    """
+    """Absolute pos embedding, learned."""
 
-    def __init__(self, num_pos_feats=256):
+    def __init__(self, num_pos_feats=256) -> None:
         super().__init__()
         self.row_embed = nn.Embedding(50, num_pos_feats)
         self.col_embed = nn.Embedding(50, num_pos_feats)
         self.reset_parameters()
 
-    def reset_parameters(self):
+    def reset_parameters(self) -> None:
         nn.init.uniform_(self.row_embed.weight)
         nn.init.uniform_(self.col_embed.weight)
 
@@ -164,7 +158,7 @@ class PositionEmbeddingLearned(nn.Module):
         j = torch.arange(h, device=x.device)
         x_emb = self.col_embed(i)
         y_emb = self.row_embed(j)
-        pos = (
+        return (
             torch.cat(
                 [
                     x_emb.unsqueeze(0).repeat(h, 1, 1),
@@ -176,7 +170,6 @@ class PositionEmbeddingLearned(nn.Module):
             .unsqueeze(0)
             .repeat(x.shape[0], 1, 1, 1)
         )
-        return pos
 
 
 def build_position_encoding(args):

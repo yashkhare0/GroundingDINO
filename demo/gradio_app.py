@@ -1,17 +1,11 @@
 import argparse
-from functools import partial
-import cv2
-import requests
 import os
-from io import BytesIO
-from PIL import Image
-import numpy as np
-from pathlib import Path
-
-
 import warnings
 
+import cv2
+import numpy as np
 import torch
+from PIL import Image
 
 # prepare the environment
 os.system("python setup.py build develop --user")
@@ -22,15 +16,13 @@ os.system("pip install gradio==3.50.2")
 warnings.filterwarnings("ignore")
 
 import gradio as gr
-
-from groundingdino.models import build_model
-from groundingdino.util.slconfig import SLConfig
-from groundingdino.util.utils import clean_state_dict
-from groundingdino.util.inference import annotate, load_image, predict
-import groundingdino.datasets.transforms as T
-
 from huggingface_hub import hf_hub_download
 
+import groundingdino.datasets.transforms as T
+from groundingdino.models import build_model
+from groundingdino.util.inference import annotate, predict
+from groundingdino.util.slconfig import SLConfig
+from groundingdino.util.utils import clean_state_dict
 
 # Use this command for evaluate the Grounding DINO model
 config_file = "groundingdino/config/GroundingDINO_SwinT_OGC.py"
@@ -45,8 +37,7 @@ def load_model_hf(model_config_path, repo_id, filename, device="cpu"):
 
     cache_file = hf_hub_download(repo_id=repo_id, filename=filename)
     checkpoint = torch.load(cache_file, map_location="cpu")
-    log = model.load_state_dict(clean_state_dict(checkpoint["model"]), strict=False)
-    print("Model loaded from {} \n => {}".format(cache_file, log))
+    model.load_state_dict(clean_state_dict(checkpoint["model"]), strict=False)
     _ = model.eval()
     return model
 
@@ -57,7 +48,7 @@ def image_transform_grounding(init_image):
             T.RandomResize([800], max_size=1333),
             T.ToTensor(),
             T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-        ]
+        ],
     )
     image, _ = transform(init_image, None)  # 3, h, w
     return init_image, image
@@ -67,7 +58,7 @@ def image_transform_grounding_for_vis(init_image):
     transform = T.Compose(
         [
             T.RandomResize([800], max_size=1333),
-        ]
+        ],
     )
     image, _ = transform(init_image, None)  # 3, h, w
     return image
@@ -78,7 +69,6 @@ model = load_model_hf(config_file, ckpt_repo_id, ckpt_filenmae)
 
 def run_grounding(input_image, grounding_caption, box_threshold, text_threshold):
     init_image = input_image.convert("RGB")
-    original_size = init_image.size
 
     _, image_tensor = image_transform_grounding(init_image)
     image_pil: Image = image_transform_grounding_for_vis(init_image)
@@ -93,11 +83,10 @@ def run_grounding(input_image, grounding_caption, box_threshold, text_threshold)
         device="cpu",
     )
     annotated_frame = annotate(
-        image_source=np.asarray(image_pil), boxes=boxes, logits=logits, phrases=phrases
+        image_source=np.asarray(image_pil), boxes=boxes, logits=logits, phrases=phrases,
     )
-    image_with_box = Image.fromarray(cv2.cvtColor(annotated_frame, cv2.COLOR_BGR2RGB))
+    return Image.fromarray(cv2.cvtColor(annotated_frame, cv2.COLOR_BGR2RGB))
 
-    return image_with_box
 
 
 if __name__ == "__main__":
@@ -110,7 +99,7 @@ if __name__ == "__main__":
     block = gr.Blocks().queue()
     with block:
         gr.Markdown(
-            "# [Grounding DINO](https://github.com/IDEA-Research/GroundingDINO)"
+            "# [Grounding DINO](https://github.com/IDEA-Research/GroundingDINO)",
         )
         gr.Markdown("### Open-World Detection with Grounding DINO")
 
@@ -150,5 +139,5 @@ if __name__ == "__main__":
         )
 
     block.launch(
-        server_name="0.0.0.0", server_port=7579, debug=args.debug, share=args.share
+        server_name="0.0.0.0", server_port=7579, debug=args.debug, share=args.share,
     )

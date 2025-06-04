@@ -12,9 +12,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 # ------------------------------------------------------------------------
 
-"""
-Backbone modules.
-"""
+"""Backbone modules."""
 
 from typing import Dict, List
 
@@ -24,7 +22,7 @@ import torchvision
 from torch import nn
 from torchvision.models._utils import IntermediateLayerGetter
 
-from groundingdino.util.misc import NestedTensor, clean_state_dict, is_main_process
+from groundingdino.util.misc import NestedTensor, is_main_process
 
 from .position_encoding import build_position_encoding
 from .swin_transformer import build_swin_transformer
@@ -39,7 +37,7 @@ class FrozenBatchNorm2d(torch.nn.Module):
     produce nans.
     """
 
-    def __init__(self, n):
+    def __init__(self, n) -> None:
         super(FrozenBatchNorm2d, self).__init__()
         self.register_buffer("weight", torch.ones(n))
         self.register_buffer("bias", torch.zeros(n))
@@ -55,7 +53,7 @@ class FrozenBatchNorm2d(torch.nn.Module):
         missing_keys,
         unexpected_keys,
         error_msgs,
-    ):
+    ) -> None:
         num_batches_tracked_key = prefix + "num_batches_tracked"
         if num_batches_tracked_key in state_dict:
             del state_dict[num_batches_tracked_key]
@@ -90,7 +88,7 @@ class BackboneBase(nn.Module):
         train_backbone: bool,
         num_channels: int,
         return_interm_indices: list,
-    ):
+    ) -> None:
         super().__init__()
         for name, parameter in backbone.named_parameters():
             if (
@@ -106,9 +104,9 @@ class BackboneBase(nn.Module):
             return_layers.update(
                 {
                     "layer{}".format(5 - len(return_interm_indices) + idx): "{}".format(
-                        layer_index
-                    )
-                }
+                        layer_index,
+                    ),
+                },
             )
 
         # if len:
@@ -143,7 +141,7 @@ class Backbone(BackboneBase):
         dilation: bool,
         return_interm_indices: list,
         batch_norm=FrozenBatchNorm2d,
-    ):
+    ) -> None:
         if name in ["resnet18", "resnet34", "resnet50", "resnet101"]:
             backbone = getattr(torchvision.models, name)(
                 replace_stride_with_dilation=[False, False, dilation],
@@ -164,14 +162,14 @@ class Backbone(BackboneBase):
 
 
 class Joiner(nn.Sequential):
-    def __init__(self, backbone, position_embedding):
+    def __init__(self, backbone, position_embedding) -> None:
         super().__init__(backbone, position_embedding)
 
     def forward(self, tensor_list: NestedTensor):
         xs = self[0](tensor_list)
         out: List[NestedTensor] = []
         pos = []
-        for name, x in xs.items():
+        for _name, x in xs.items():
             out.append(x)
             # position encoding
             pos.append(self[1](x).to(x.tensors.dtype))
@@ -187,7 +185,7 @@ def build_backbone(args):
         - dilation
         - return_interm_indices: available: [0,1,2,3], [1,2,3], [3]
         - backbone_freeze_keywords:
-        - use_checkpoint: for swin only for now
+        - use_checkpoint: for swin only for now.
 
     """
     position_embedding = build_position_encoding(args)
@@ -229,13 +227,13 @@ def build_backbone(args):
         raise NotImplementedError("Unknown backbone {}".format(args.backbone))
 
     assert len(bb_num_channels) == len(
-        return_interm_indices
+        return_interm_indices,
     ), f"len(bb_num_channels) {len(bb_num_channels)} != len(return_interm_indices) {len(return_interm_indices)}"
 
     model = Joiner(backbone, position_embedding)
     model.num_channels = bb_num_channels
     assert isinstance(
-        bb_num_channels, List
+        bb_num_channels, List,
     ), "bb_num_channels is expected to be a List but {}".format(type(bb_num_channels))
     # import ipdb; ipdb.set_trace()
     return model

@@ -1,11 +1,10 @@
+import os
+
 from transformers import (
     AutoTokenizer,
     BertModel,
-    BertTokenizer,
     RobertaModel,
-    RobertaTokenizerFast,
 )
-import os
 
 
 def get_tokenlizer(text_encoder_type):
@@ -19,12 +18,10 @@ def get_tokenlizer(text_encoder_type):
             pass
         else:
             raise ValueError(
-                "Unknown type of text_encoder_type: {}".format(type(text_encoder_type))
+                "Unknown type of text_encoder_type: {}".format(type(text_encoder_type)),
             )
-    print("final text_encoder_type: {}".format(text_encoder_type))
 
-    tokenizer = AutoTokenizer.from_pretrained(text_encoder_type)
-    return tokenizer
+    return AutoTokenizer.from_pretrained(text_encoder_type)
 
 
 def get_pretrained_language_model(text_encoder_type):

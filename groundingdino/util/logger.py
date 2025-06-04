@@ -8,7 +8,7 @@ from termcolor import colored
 
 
 class _ColorfulFormatter(logging.Formatter):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         self._root_name = kwargs.pop("root_name") + "."
         self._abbrev_name = kwargs.pop("abbrev_name", "")
         if len(self._abbrev_name):
@@ -20,7 +20,7 @@ class _ColorfulFormatter(logging.Formatter):
         log = super(_ColorfulFormatter, self).formatMessage(record)
         if record.levelno == logging.WARNING:
             prefix = colored("WARNING", "red", attrs=["blink"])
-        elif record.levelno == logging.ERROR or record.levelno == logging.CRITICAL:
+        elif record.levelno in (logging.ERROR, logging.CRITICAL):
             prefix = colored("ERROR", "red", attrs=["blink", "underline"])
         else:
             return log
@@ -30,7 +30,7 @@ class _ColorfulFormatter(logging.Formatter):
 # so that calling setup_logger multiple times won't add many handlers
 @functools.lru_cache()
 def setup_logger(
-    output=None, distributed_rank=0, *, color=True, name="imagenet", abbrev_name=None
+    output=None, distributed_rank=0, *, color=True, name="imagenet", abbrev_name=None,
 ):
     """
     Initialize the detectron2 logger and set its verbosity level to "INFO".
@@ -52,7 +52,7 @@ def setup_logger(
         abbrev_name = name
 
     plain_formatter = logging.Formatter(
-        "[%(asctime)s.%(msecs)03d]: %(message)s", datefmt="%m/%d %H:%M:%S"
+        "[%(asctime)s.%(msecs)03d]: %(message)s", datefmt="%m/%d %H:%M:%S",
     )
     # stdout logging: master only
     if distributed_rank == 0:
@@ -72,10 +72,7 @@ def setup_logger(
 
     # file logging: all workers
     if output is not None:
-        if output.endswith(".txt") or output.endswith(".log"):
-            filename = output
-        else:
-            filename = os.path.join(output, "log.txt")
+        filename = output if output.endswith((".txt", ".log")) else os.path.join(output, "log.txt")
         if distributed_rank > 0:
             filename = filename + f".rank{distributed_rank}"
         os.makedirs(os.path.dirname(filename), exist_ok=True)

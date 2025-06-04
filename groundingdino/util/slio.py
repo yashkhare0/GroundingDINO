@@ -10,9 +10,10 @@ from pathlib import Path
 import yaml
 
 try:
-    from yaml import CLoader as Loader, CDumper as Dumper
+    from yaml import CDumper as Dumper
+    from yaml import CLoader as Loader
 except ImportError:
-    from yaml import Loader, Dumper
+    from yaml import Dumper, Loader
 
 
 # ===========================
@@ -37,7 +38,7 @@ class BaseFileHandler(metaclass=ABCMeta):
         with open(filepath, mode) as f:
             return self.load_from_fileobj(f, **kwargs)
 
-    def dump_to_path(self, obj, filepath, mode="w", **kwargs):
+    def dump_to_path(self, obj, filepath, mode="w", **kwargs) -> None:
         with open(filepath, mode) as f:
             self.dump_to_fileobj(obj, f, **kwargs)
 
@@ -46,7 +47,7 @@ class JsonHandler(BaseFileHandler):
     def load_from_fileobj(self, file):
         return json.load(file)
 
-    def dump_to_fileobj(self, obj, file, **kwargs):
+    def dump_to_fileobj(self, obj, file, **kwargs) -> None:
         json.dump(obj, file, **kwargs)
 
     def dump_to_str(self, obj, **kwargs):
@@ -64,11 +65,11 @@ class PickleHandler(BaseFileHandler):
         kwargs.setdefault("protocol", 2)
         return pickle.dumps(obj, **kwargs)
 
-    def dump_to_fileobj(self, obj, file, **kwargs):
+    def dump_to_fileobj(self, obj, file, **kwargs) -> None:
         kwargs.setdefault("protocol", 2)
         pickle.dump(obj, file, **kwargs)
 
-    def dump_to_path(self, obj, filepath, **kwargs):
+    def dump_to_path(self, obj, filepath, **kwargs) -> None:
         super(PickleHandler, self).dump_to_path(obj, filepath, mode="wb", **kwargs)
 
 
@@ -77,7 +78,7 @@ class YamlHandler(BaseFileHandler):
         kwargs.setdefault("Loader", Loader)
         return yaml.load(file, **kwargs)
 
-    def dump_to_fileobj(self, obj, file, **kwargs):
+    def dump_to_fileobj(self, obj, file, **kwargs) -> None:
         kwargs.setdefault("Dumper", Dumper)
         yaml.dump(obj, file, **kwargs)
 
@@ -171,7 +172,9 @@ def sldump(obj, file=None, file_format=None, **kwargs):
         return handler.dump_to_str(obj, **kwargs)
     elif is_str(file):
         handler.dump_to_path(obj, file, **kwargs)
+        return None
     elif hasattr(file, "write"):
         handler.dump_to_fileobj(obj, file, **kwargs)
+        return None
     else:
         raise TypeError('"file" must be a filename str or a file-object')

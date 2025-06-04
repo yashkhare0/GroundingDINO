@@ -1,4 +1,5 @@
-from typing import Tuple, List
+import bisect
+from typing import List, Tuple
 
 import cv2
 import numpy as np
@@ -6,7 +7,6 @@ import supervision as sv
 import torch
 from PIL import Image
 from torchvision.ops import box_convert
-import bisect
 
 import groundingdino.datasets.transforms as T
 from groundingdino.models import build_model
@@ -27,7 +27,7 @@ def preprocess_caption(caption: str) -> str:
 
 
 def load_model(
-    model_config_path: str, model_checkpoint_path: str, device: str = "cuda"
+    model_config_path: str, model_checkpoint_path: str, device: str = "cuda",
 ):
     args = SLConfig.fromfile(model_config_path)
     args.device = device
@@ -44,7 +44,7 @@ def load_image(image_path: str) -> Tuple[np.array, torch.Tensor]:
             T.RandomResize([800], max_size=1333),
             T.ToTensor(),
             T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-        ]
+        ],
     )
     image_source = Image.open(image_path).convert("RGB")
     image = np.asarray(image_source)
@@ -98,13 +98,13 @@ def predict(
             left_idx = sep_idx[insert_idx - 1]
             phrases.append(
                 get_phrases_from_posmap(
-                    logit > text_threshold, tokenized, tokenizer, left_idx, right_idx
-                ).replace(".", "")
+                    logit > text_threshold, tokenized, tokenizer, left_idx, right_idx,
+                ).replace(".", ""),
             )
     else:
         phrases = [
             get_phrases_from_posmap(
-                logit > text_threshold, tokenized, tokenizer
+                logit > text_threshold, tokenized, tokenizer,
             ).replace(".", "")
             for logit in logits
         ]
@@ -141,12 +141,11 @@ def annotate(
     label_annotator = sv.LabelAnnotator(color_lookup=sv.ColorLookup.INDEX)
     annotated_frame = cv2.cvtColor(image_source, cv2.COLOR_RGB2BGR)
     annotated_frame = bbox_annotator.annotate(
-        scene=annotated_frame, detections=detections
+        scene=annotated_frame, detections=detections,
     )
-    annotated_frame = label_annotator.annotate(
-        scene=annotated_frame, detections=detections, labels=labels
+    return label_annotator.annotate(
+        scene=annotated_frame, detections=detections, labels=labels,
     )
-    return annotated_frame
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -157,8 +156,8 @@ def annotate(
 class Model:
 
     def __init__(
-        self, model_config_path: str, model_checkpoint_path: str, device: str = "cuda"
-    ):
+        self, model_config_path: str, model_checkpoint_path: str, device: str = "cuda",
+    ) -> None:
         self.model = load_model(
             model_config_path=model_config_path,
             model_checkpoint_path=model_checkpoint_path,
@@ -174,7 +173,7 @@ class Model:
         text_threshold: float = 0.25,
     ) -> Tuple[sv.Detections, List[str]]:
         """
-        import cv2
+        import cv2.
 
         image = cv2.imread(IMAGE_PATH)
 
@@ -202,7 +201,7 @@ class Model:
         )
         source_h, source_w, _ = image.shape
         detections = Model.post_process_result(
-            source_h=source_h, source_w=source_w, boxes=boxes, logits=logits
+            source_h=source_h, source_w=source_w, boxes=boxes, logits=logits,
         )
         return detections, phrases
 
@@ -214,7 +213,7 @@ class Model:
         text_threshold: float,
     ) -> sv.Detections:
         """
-        import cv2
+        import cv2.
 
         image = cv2.imread(IMAGE_PATH)
 
@@ -244,7 +243,7 @@ class Model:
         )
         source_h, source_w, _ = image.shape
         detections = Model.post_process_result(
-            source_h=source_h, source_w=source_w, boxes=boxes, logits=logits
+            source_h=source_h, source_w=source_w, boxes=boxes, logits=logits,
         )
         class_id = Model.phrases2classes(phrases=phrases, classes=classes)
         detections.class_id = class_id
@@ -257,7 +256,7 @@ class Model:
                 T.RandomResize([800], max_size=1333),
                 T.ToTensor(),
                 T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-            ]
+            ],
         )
         image_pillow = Image.fromarray(cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB))
         image_transformed, _ = transform(image_pillow, None)
@@ -265,7 +264,7 @@ class Model:
 
     @staticmethod
     def post_process_result(
-        source_h: int, source_w: int, boxes: torch.Tensor, logits: torch.Tensor
+        source_h: int, source_w: int, boxes: torch.Tensor, logits: torch.Tensor,
     ) -> sv.Detections:
         boxes = boxes * torch.Tensor([source_w, source_h, source_w, source_h])
         xyxy = box_convert(boxes=boxes, in_fmt="cxcywh", out_fmt="xyxy").numpy()

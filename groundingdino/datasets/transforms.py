@@ -1,7 +1,5 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
-"""
-Transforms and data augmentation for both image + bbox.
-"""
+"""Transforms and data augmentation for both image + bbox."""
 import os
 import random
 
@@ -74,7 +72,7 @@ def hflip(image, target):
     if "boxes" in target:
         boxes = target["boxes"]
         boxes = boxes[:, [2, 1, 0, 3]] * torch.as_tensor(
-            [-1, 1, -1, 1]
+            [-1, 1, -1, 1],
         ) + torch.as_tensor([w, 0, w, 0])
         target["boxes"] = boxes
 
@@ -128,7 +126,7 @@ def resize(image, target, size, max_size=None):
     if "boxes" in target:
         boxes = target["boxes"]
         scaled_boxes = boxes * torch.as_tensor(
-            [ratio_width, ratio_height, ratio_width, ratio_height]
+            [ratio_width, ratio_height, ratio_width, ratio_height],
         )
         target["boxes"] = scaled_boxes
 
@@ -159,13 +157,13 @@ def pad(image, target, padding):
     target["size"] = torch.tensor(padded_image.size[::-1])
     if "masks" in target:
         target["masks"] = torch.nn.functional.pad(
-            target["masks"], (0, padding[0], 0, padding[1])
+            target["masks"], (0, padding[0], 0, padding[1]),
         )
     return padded_image, target
 
 
 class ResizeDebug(object):
-    def __init__(self, size):
+    def __init__(self, size) -> None:
         self.size = size
 
     def __call__(self, img, target):
@@ -173,7 +171,7 @@ class ResizeDebug(object):
 
 
 class RandomCrop(object):
-    def __init__(self, size):
+    def __init__(self, size) -> None:
         self.size = size
 
     def __call__(self, img, target):
@@ -182,7 +180,7 @@ class RandomCrop(object):
 
 
 class RandomSizeCrop(object):
-    def __init__(self, min_size: int, max_size: int, respect_boxes: bool = False):
+    def __init__(self, min_size: int, max_size: int, respect_boxes: bool = False) -> None:
         # respect_boxes:    True to keep all boxes
         #                   False to tolerence box filter
         self.min_size = min_size
@@ -207,7 +205,7 @@ class RandomSizeCrop(object):
 
 
 class CenterCrop(object):
-    def __init__(self, size):
+    def __init__(self, size) -> None:
         self.size = size
 
     def __call__(self, img, target):
@@ -219,7 +217,7 @@ class CenterCrop(object):
 
 
 class RandomHorizontalFlip(object):
-    def __init__(self, p=0.5):
+    def __init__(self, p=0.5) -> None:
         self.p = p
 
     def __call__(self, img, target):
@@ -229,7 +227,7 @@ class RandomHorizontalFlip(object):
 
 
 class RandomResize(object):
-    def __init__(self, sizes, max_size=None):
+    def __init__(self, sizes, max_size=None) -> None:
         assert isinstance(sizes, (list, tuple))
         self.sizes = sizes
         self.max_size = max_size
@@ -240,7 +238,7 @@ class RandomResize(object):
 
 
 class RandomPad(object):
-    def __init__(self, max_pad):
+    def __init__(self, max_pad) -> None:
         self.max_pad = max_pad
 
     def __call__(self, img, target):
@@ -252,10 +250,10 @@ class RandomPad(object):
 class RandomSelect(object):
     """
     Randomly selects between transforms1 and transforms2,
-    with probability p for transforms1 and (1 - p) for transforms2
+    with probability p for transforms1 and (1 - p) for transforms2.
     """
 
-    def __init__(self, transforms1, transforms2, p=0.5):
+    def __init__(self, transforms1, transforms2, p=0.5) -> None:
         self.transforms1 = transforms1
         self.transforms2 = transforms2
         self.p = p
@@ -272,7 +270,7 @@ class ToTensor(object):
 
 
 class RandomErasing(object):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         self.eraser = T.RandomErasing(*args, **kwargs)
 
     def __call__(self, img, target):
@@ -280,7 +278,7 @@ class RandomErasing(object):
 
 
 class Normalize(object):
-    def __init__(self, mean, std):
+    def __init__(self, mean, std) -> None:
         self.mean = mean
         self.std = std
 
@@ -299,7 +297,7 @@ class Normalize(object):
 
 
 class Compose(object):
-    def __init__(self, transforms):
+    def __init__(self, transforms) -> None:
         self.transforms = transforms
 
     def __call__(self, image, target):
@@ -307,7 +305,7 @@ class Compose(object):
             image, target = t(image, target)
         return image, target
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         format_string = self.__class__.__name__ + "("
         for t in self.transforms:
             format_string += "\n"

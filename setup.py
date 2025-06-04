@@ -23,12 +23,10 @@
 import glob
 import os
 import subprocess
-
-import subprocess
 import sys
 
 
-def install_torch():
+def install_torch() -> None:
     try:
         import torch
     except ImportError:
@@ -37,6 +35,8 @@ def install_torch():
 
 # Call the function to ensure torch is installed
 install_torch()
+
+import contextlib
 
 import torch
 from setuptools import find_packages, setup
@@ -49,17 +49,15 @@ cwd = os.path.dirname(os.path.abspath(__file__))
 
 
 sha = "Unknown"
-try:
+with contextlib.suppress(Exception):
     sha = (
         subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=cwd)
         .decode("ascii")
         .strip()
     )
-except Exception:
-    pass
 
 
-def write_version_file():
+def write_version_file() -> None:
     version_path = os.path.join(cwd, "groundingdino", "version.py")
     with open(version_path, "w") as f:
         f.write(f"__version__ = '{version}'\n")
@@ -74,16 +72,16 @@ torch_ver = [int(x) for x in torch.__version__.split(".")[:2]]
 def get_extensions():
     this_dir = os.path.dirname(os.path.abspath(__file__))
     extensions_dir = os.path.join(
-        this_dir, "groundingdino", "models", "GroundingDINO", "csrc"
+        this_dir, "groundingdino", "models", "GroundingDINO", "csrc",
     )
 
     main_source = os.path.join(extensions_dir, "vision.cpp")
     sources = glob.glob(os.path.join(extensions_dir, "**", "*.cpp"))
     source_cuda = glob.glob(os.path.join(extensions_dir, "**", "*.cu")) + glob.glob(
-        os.path.join(extensions_dir, "*.cu")
+        os.path.join(extensions_dir, "*.cu"),
     )
 
-    sources = [main_source] + sources
+    sources = [main_source, *sources]
 
     extension = CppExtension
 
@@ -93,7 +91,6 @@ def get_extensions():
     if CUDA_HOME is not None and (
         torch.cuda.is_available() or "TORCH_CUDA_ARCH_LIST" in os.environ
     ):
-        print("Compiling with CUDA")
         extension = CUDAExtension
         sources += source_cuda
         define_macros += [("WITH_CUDA", None)]
@@ -104,7 +101,6 @@ def get_extensions():
             "-D__CUDA_NO_HALF2_OPERATORS__",
         ]
     else:
-        print("Compiling without CUDA")
         define_macros += [("WITH_HIP", None)]
         extra_compile_args["nvcc"] = []
         return None
@@ -112,17 +108,16 @@ def get_extensions():
     sources = [os.path.join(extensions_dir, s) for s in sources]
     include_dirs = [extensions_dir]
 
-    ext_modules = [
+    return [
         extension(
             "groundingdino._C",
             sources,
             include_dirs=include_dirs,
             define_macros=define_macros,
             extra_compile_args=extra_compile_args,
-        )
+        ),
     ]
 
-    return ext_modules
 
 
 def parse_requirements(fname="requirements.txt", with_version=True):
@@ -173,7 +168,7 @@ def parse_requirements(fname="requirements.txt", with_version=True):
                         version, platform_deps = map(str.strip, rest.split(";"))
                         info["platform_deps"] = platform_deps
                     else:
-                        version = rest  # NOQA
+                        version = rest
                     info["version"] = (op, version)
             yield info
 
@@ -199,12 +194,10 @@ def parse_requirements(fname="requirements.txt", with_version=True):
                 item = "".join(parts)
                 yield item
 
-    packages = list(gen_packages_items())
-    return packages
+    return list(gen_packages_items())
 
 
 if __name__ == "__main__":
-    print(f"Building wheel {package_name}-{version}")
 
     with open("LICENSE", "r", encoding="utf-8") as f:
         license = f.read()
@@ -223,7 +216,7 @@ if __name__ == "__main__":
             exclude=(
                 "configs",
                 "tests",
-            )
+            ),
         ),
         ext_modules=get_extensions(),
         cmdclass={"build_ext": torch.utils.cpp_extension.BuildExtension},

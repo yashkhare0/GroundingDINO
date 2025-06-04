@@ -2,14 +2,14 @@
 """
 @File    :   visualizer.py
 @Time    :   2022/04/05 11:39:33
-@Author  :   Shilong Liu 
-@Contact :   slongliu86@gmail.com
+@Author  :   Shilong Liu
+@Contact :   slongliu86@gmail.com.
 """
 
 import datetime
 import os
+from typing import Optional
 
-import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -20,10 +20,14 @@ from pycocotools import mask as maskUtils
 
 
 def renorm(
-    img: torch.FloatTensor, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+    img: torch.FloatTensor, mean=None, std=None,
 ) -> torch.FloatTensor:
     # img: tensor(3,H,W) or tensor(B,3,H,W)
     # return: same as img
+    if std is None:
+        std = [0.229, 0.224, 0.225]
+    if mean is None:
+        mean = [0.485, 0.456, 0.406]
     assert img.dim() == 3 or img.dim() == 4, (
         "img.dim() should be 3 or 4 but %d" % img.dim()
     )
@@ -50,7 +54,9 @@ def renorm(
 
 
 class ColorMap:
-    def __init__(self, basergb=[255, 255, 0]):
+    def __init__(self, basergb=None) -> None:
+        if basergb is None:
+            basergb = [255, 255, 0]
         self.basergb = np.array(basergb)
 
     def __call__(self, attnmap):
@@ -61,11 +67,10 @@ class ColorMap:
         res = self.basergb.copy()
         res = res[None][None].repeat(h, 0).repeat(w, 1)  # h, w, 3
         attn1 = attnmap.copy()[..., None]  # h, w, 1
-        res = np.concatenate((res, attn1), axis=-1).astype(np.uint8)
-        return res
+        return np.concatenate((res, attn1), axis=-1).astype(np.uint8)
 
 
-def rainbow_text(x, y, ls, lc, **kw):
+def rainbow_text(x, y, ls, lc, **kw) -> None:
     """
     Take a list of strings ``ls`` and colors ``lc`` and place them next to each
     other, with text ls[i] being shown in color lc[i].
@@ -98,11 +103,11 @@ class COCOVisualizer:
     def __init__(self, coco=None, tokenlizer=None) -> None:
         self.coco = coco
 
-    def visualize(self, img, tgt, caption=None, dpi=180, savedir="vis"):
+    def visualize(self, img, tgt, caption=None, dpi=180, savedir="vis") -> None:
         """
         img: tensor(3, H, W)
         tgt: make sure they are all on cpu.
-            must have items: 'image_id', 'boxes', 'size'
+            must have items: 'image_id', 'boxes', 'size'.
         """
         plt.figure(dpi=dpi)
         plt.rcParams["font.size"] = "5"
@@ -114,16 +119,11 @@ class COCOVisualizer:
 
         self.addtgt(tgt)
 
-        if tgt is None:
-            image_id = 0
-        elif "image_id" not in tgt:
-            image_id = 0
-        else:
-            image_id = tgt["image_id"]
+        image_id = 0 if tgt is None or "image_id" not in tgt else tgt["image_id"]
 
         if caption is None:
             savename = "{}/{}-{}.png".format(
-                savedir, int(image_id), str(datetime.datetime.now()).replace(" ", "-")
+                savedir, int(image_id), str(datetime.datetime.now()).replace(" ", "-"),
             )
         else:
             savename = "{}/{}-{}-{}.png".format(
@@ -132,14 +132,13 @@ class COCOVisualizer:
                 int(image_id),
                 str(datetime.datetime.now()).replace(" ", "-"),
             )
-        print("savename: {}".format(savename))
         os.makedirs(os.path.dirname(savename), exist_ok=True)
         plt.savefig(savename)
         plt.close()
 
-    def addtgt(self, tgt):
+    def addtgt(self, tgt) -> None:
         """ """
-        if tgt is None or not "boxes" in tgt:
+        if tgt is None or "boxes" not in tgt:
             ax = plt.gca()
 
             if "caption" in tgt:
@@ -231,11 +230,11 @@ class COCOVisualizer:
                 ax.imshow(heatmap)
         ax.set_axis_off()
 
-    def showAnns(self, anns, draw_bbox=False):
+    def showAnns(self, anns, draw_bbox=False) -> Optional[int]:
         """
         Display the specified annotations.
         :param anns (array of object): annotations to display
-        :return: None
+        :return: None.
         """
         if len(anns) == 0:
             return 0
@@ -264,7 +263,7 @@ class COCOVisualizer:
                         t = self.imgs[ann["image_id"]]
                         if type(ann["segmentation"]["counts"]) == list:
                             rle = maskUtils.frPyObjects(
-                                [ann["segmentation"]], t["height"], t["width"]
+                                [ann["segmentation"]], t["height"], t["width"],
                             )
                         else:
                             rle = [ann["segmentation"]]
@@ -321,9 +320,12 @@ class COCOVisualizer:
             # p = PatchCollection(polygons, facecolor=color, linewidths=0, alpha=0.4)
             # ax.add_collection(p)
             p = PatchCollection(
-                polygons, facecolor="none", edgecolors=color, linewidths=2
+                polygons, facecolor="none", edgecolors=color, linewidths=2,
             )
             ax.add_collection(p)
+            return None
         elif datasetType == "captions":
             for ann in anns:
-                print(ann["caption"])
+                pass
+            return None
+        return None

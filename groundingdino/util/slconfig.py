@@ -18,7 +18,7 @@ DELETE_KEY = "_delete_"
 RESERVED_KEYS = ["filename", "text", "pretty_text", "get", "dump", "merge_from_dict"]
 
 
-def check_file_exist(filename, msg_tmpl='file "{}" does not exist'):
+def check_file_exist(filename, msg_tmpl='file "{}" does not exist') -> None:
     if not osp.isfile(filename):
         raise FileNotFoundError(msg_tmpl.format(filename))
 
@@ -32,7 +32,7 @@ class ConfigDict(Dict):
             value = super(ConfigDict, self).__getattr__(name)
         except KeyError:
             ex = AttributeError(
-                f"'{self.__class__.__name__}' object has no " f"attribute '{name}'"
+                f"'{self.__class__.__name__}' object has no attribute '{name}'",
             )
         except Exception as e:
             ex = e
@@ -67,7 +67,7 @@ class SLConfig(object):
     """
 
     @staticmethod
-    def _validate_py_syntax(filename):
+    def _validate_py_syntax(filename) -> None:
         with open(filename) as f:
             content = f.read()
         try:
@@ -82,7 +82,7 @@ class SLConfig(object):
         if filename.lower().endswith(".py"):
             with tempfile.TemporaryDirectory() as temp_config_dir:
                 temp_config_file = tempfile.NamedTemporaryFile(
-                    dir=temp_config_dir, suffix=".py"
+                    dir=temp_config_dir, suffix=".py",
                 )
                 temp_config_name = osp.basename(temp_config_file.name)
                 if os.name == "nt":
@@ -121,14 +121,14 @@ class SLConfig(object):
                 base_filename if isinstance(base_filename, list) else [base_filename]
             )
 
-            cfg_dict_list = list()
-            cfg_text_list = list()
+            cfg_dict_list = []
+            cfg_text_list = []
             for f in base_filename:
                 _cfg_dict, _cfg_text = SLConfig._file2dict(osp.join(cfg_dir, f))
                 cfg_dict_list.append(_cfg_dict)
                 cfg_text_list.append(_cfg_text)
 
-            base_cfg_dict = dict()
+            base_cfg_dict = {}
             for c in cfg_dict_list:
                 if len(base_cfg_dict.keys() & c.keys()) > 0:
                     raise KeyError("Duplicate key is not allowed among bases")
@@ -146,9 +146,9 @@ class SLConfig(object):
 
     @staticmethod
     def _merge_a_into_b(a, b):
-        """merge dict `a` into dict `b` (non-inplace).
+        """Merge dict `a` into dict `b` (non-inplace).
             values in `a` will overwrite `b`.
-            copy first to avoid inplace modification
+            copy first to avoid inplace modification.
 
         Args:
             a ([type]): [description]
@@ -172,7 +172,7 @@ class SLConfig(object):
                         f"{k}={v} in child config cannot inherit from base "
                         f"because {k} is a dict in the child config but is of "
                         f"type {type(b[k])} in base config. You may set "
-                        f"`{DELETE_KEY}=True` to ignore the base config"
+                        f"`{DELETE_KEY}=True` to ignore the base config",
                     )
                 b[k] = SLConfig._merge_a_into_b(v, b[k])
             elif isinstance(b, list):
@@ -181,7 +181,7 @@ class SLConfig(object):
                 except:
                     raise TypeError(
                         f"b is a list, "
-                        f"index {k} should be an int when input but {type(k)}"
+                        f"index {k} should be an int when input but {type(k)}",
                     )
                 b[int(k)] = SLConfig._merge_a_into_b(v, b[int(k)])
             else:
@@ -194,9 +194,9 @@ class SLConfig(object):
         cfg_dict, cfg_text = SLConfig._file2dict(filename)
         return SLConfig(cfg_dict, cfg_text=cfg_text, filename=filename)
 
-    def __init__(self, cfg_dict=None, cfg_text=None, filename=None):
+    def __init__(self, cfg_dict=None, cfg_text=None, filename=None) -> None:
         if cfg_dict is None:
-            cfg_dict = dict()
+            cfg_dict = {}
         elif not isinstance(cfg_dict, dict):
             raise TypeError("cfg_dict must be a dict, but " f"got {type(cfg_dict)}")
         for key in cfg_dict:
@@ -234,23 +234,18 @@ class SLConfig(object):
             first = s.pop(0)
             s = [(num_spaces * " ") + line for line in s]
             s = "\n".join(s)
-            s = first + "\n" + s
-            return s
+            return first + "\n" + s
 
         def _format_basic_types(k, v, use_mapping=False):
-            if isinstance(v, str):
-                v_str = f"'{v}'"
-            else:
-                v_str = str(v)
+            v_str = f"'{v}'" if isinstance(v, str) else str(v)
 
             if use_mapping:
                 k_str = f"'{k}'" if isinstance(k, str) else str(k)
                 attr_str = f"{k_str}: {v_str}"
             else:
-                attr_str = f"{str(k)}={v_str}"
-            attr_str = _indent(attr_str, indent)
+                attr_str = f"{k!s}={v_str}"
+            return _indent(attr_str, indent)
 
-            return attr_str
 
         def _format_list(k, v, use_mapping=False):
             # check if all items in the list are dict
@@ -263,7 +258,7 @@ class SLConfig(object):
                     k_str = f"'{k}'" if isinstance(k, str) else str(k)
                     attr_str = f"{k_str}: {v_str}"
                 else:
-                    attr_str = f"{str(k)}={v_str}"
+                    attr_str = f"{k!s}={v_str}"
                 attr_str = _indent(attr_str, indent) + "]"
             else:
                 attr_str = _format_basic_types(k, v, use_mapping)
@@ -291,7 +286,7 @@ class SLConfig(object):
                         k_str = f"'{k}'" if isinstance(k, str) else str(k)
                         attr_str = f"{k_str}: dict({v_str}"
                     else:
-                        attr_str = f"{str(k)}=dict({v_str}"
+                        attr_str = f"{k!s}=dict({v_str}"
                     attr_str = _indent(attr_str, indent) + ")" + end
                 elif isinstance(v, list):
                     attr_str = _format_list(k, v, use_mapping) + end
@@ -307,19 +302,19 @@ class SLConfig(object):
         cfg_dict = self._cfg_dict.to_dict()
         text = _format_dict(cfg_dict, outest_level=True)
         # copied from setup.cfg
-        yapf_style = dict(
-            based_on_style="pep8",
-            blank_line_before_nested_class_or_def=True,
-            split_before_expression_after_opening_paren=True,
-        )
+        yapf_style = {
+            "based_on_style": "pep8",
+            "blank_line_before_nested_class_or_def": True,
+            "split_before_expression_after_opening_paren": True,
+        }
         text, _ = FormatCode(text, style_config=yapf_style, verify=True)
 
         return text
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Config (path: {self.filename}): {self._cfg_dict.__repr__()}"
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._cfg_dict)
 
     def __getattr__(self, name):
@@ -338,12 +333,12 @@ class SLConfig(object):
     def __getitem__(self, name):
         return self._cfg_dict.__getitem__(name)
 
-    def __setattr__(self, name, value):
+    def __setattr__(self, name, value) -> None:
         if isinstance(value, dict):
             value = ConfigDict(value)
         self._cfg_dict.__setattr__(name, value)
 
-    def __setitem__(self, name, value):
+    def __setitem__(self, name, value) -> None:
         if isinstance(value, dict):
             value = ConfigDict(value)
         self._cfg_dict.__setitem__(name, value)
@@ -358,9 +353,10 @@ class SLConfig(object):
         else:
             with open(file, "w") as f:
                 f.write(self.pretty_text)
+                return None
 
-    def merge_from_dict(self, options):
-        """Merge list into cfg_dict
+    def merge_from_dict(self, options) -> None:
+        """Merge list into cfg_dict.
 
         Merge the dict parsed by MultipleKVAction into this cfg.
 
@@ -388,7 +384,7 @@ class SLConfig(object):
 
         cfg_dict = super(SLConfig, self).__getattribute__("_cfg_dict")
         super(SLConfig, self).__setattr__(
-            "_cfg_dict", SLConfig._merge_a_into_b(option_cfg_dict, cfg_dict)
+            "_cfg_dict", SLConfig._merge_a_into_b(option_cfg_dict, cfg_dict),
         )
 
     # for multiprocess
@@ -406,7 +402,7 @@ class DictAction(Action):
     """
     argparse action to split an argument into KEY=VALUE form
     on the first = and append to a dictionary. List options should
-    be passed as comma separated values, i.e KEY=V1,V2,V3
+    be passed as comma separated values, i.e KEY=V1,V2,V3.
     """
 
     @staticmethod
@@ -420,7 +416,7 @@ class DictAction(Action):
         except ValueError:
             pass
         if val.lower() in ["true", "false"]:
-            return True if val.lower() == "true" else False
+            return val.lower() == "true"
         if val.lower() in ["none", "null"]:
             return None
         return val

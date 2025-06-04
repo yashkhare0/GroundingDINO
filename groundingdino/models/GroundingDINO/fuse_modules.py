@@ -6,9 +6,9 @@
 # ------------------------------------------------------------------------
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from timm.models.layers import DropPath
+from torch import nn
 
 
 class FeatureResizer(nn.Module):
@@ -17,7 +17,7 @@ class FeatureResizer(nn.Module):
     embedding of dimension C2, after a linear transformation, dropout and normalization (LN).
     """
 
-    def __init__(self, input_feat_size, output_feat_size, dropout, do_ln=True):
+    def __init__(self, input_feat_size, output_feat_size, dropout, do_ln=True) -> None:
         super().__init__()
         self.do_ln = do_ln
         # Object feature encoding
@@ -29,30 +29,27 @@ class FeatureResizer(nn.Module):
         x = self.fc(encoder_features)
         if self.do_ln:
             x = self.layer_norm(x)
-        output = self.dropout(x)
-        return output
+        return self.dropout(x)
 
 
 def l1norm(X, dim, eps=1e-8):
-    """L1-normalize columns of X"""
+    """L1-normalize columns of X."""
     norm = torch.abs(X).sum(dim=dim, keepdim=True) + eps
-    X = torch.div(X, norm)
-    return X
+    return torch.div(X, norm)
 
 
 def l2norm(X, dim, eps=1e-8):
-    """L2-normalize columns of X"""
+    """L2-normalize columns of X."""
     norm = torch.pow(X, 2).sum(dim=dim, keepdim=True).sqrt() + eps
-    X = torch.div(X, norm)
-    return X
+    return torch.div(X, norm)
 
 
 def func_attention(query, context, smooth=1, raw_feature_norm="softmax", eps=1e-8):
     """
     query: (n_context, queryL, d)
-    context: (n_context, sourceL, d)
+    context: (n_context, sourceL, d).
     """
-    batch_size_q, queryL = query.size(0), query.size(1)
+    _batch_size_q, queryL = query.size(0), query.size(1)
     batch_size, sourceL = context.size(0), context.size(1)
 
     # Get attention
@@ -97,7 +94,7 @@ def func_attention(query, context, smooth=1, raw_feature_norm="softmax", eps=1e-
 
 
 class BiMultiHeadAttention(nn.Module):
-    def __init__(self, v_dim, l_dim, embed_dim, num_heads, dropout=0.1, cfg=None):
+    def __init__(self, v_dim, l_dim, embed_dim, num_heads, dropout=0.1, cfg=None) -> None:
         super(BiMultiHeadAttention, self).__init__()
 
         self.embed_dim = embed_dim
@@ -133,7 +130,7 @@ class BiMultiHeadAttention(nn.Module):
             .contiguous()
         )
 
-    def _reset_parameters(self):
+    def _reset_parameters(self) -> None:
         nn.init.xavier_uniform_(self.v_proj.weight)
         self.v_proj.bias.data.fill_(0)
         nn.init.xavier_uniform_(self.l_proj.weight)
@@ -148,7 +145,7 @@ class BiMultiHeadAttention(nn.Module):
         self.out_l_proj.bias.data.fill_(0)
 
     def forward(self, v, l, attention_mask_v=None, attention_mask_l=None):
-        """_summary_
+        """_summary_.
 
         Args:
             v (_type_): bs, n_img, dim
@@ -176,12 +173,12 @@ class BiMultiHeadAttention(nn.Module):
 
         src_len = key_states.size(1)
         attn_weights = torch.bmm(
-            query_states, key_states.transpose(1, 2)
+            query_states, key_states.transpose(1, 2),
         )  # bs*nhead, nimg, ntxt
 
         if attn_weights.size() != (bsz * self.num_heads, tgt_len, src_len):
             raise ValueError(
-                f"Attention weights should be of size {(bsz * self.num_heads, tgt_len, src_len)}, but is {attn_weights.size()}"
+                f"Attention weights should be of size {(bsz * self.num_heads, tgt_len, src_len)}, but is {attn_weights.size()}",
             )
 
         if self.stable_softmax_2d:
@@ -189,11 +186,11 @@ class BiMultiHeadAttention(nn.Module):
 
         if self.clamp_min_for_underflow:
             attn_weights = torch.clamp(
-                attn_weights, min=-50000
+                attn_weights, min=-50000,
             )  # Do not increase -50000, data type half has quite limited range
         if self.clamp_max_for_overflow:
             attn_weights = torch.clamp(
-                attn_weights, max=50000
+                attn_weights, max=50000,
             )  # Do not increase 50000, data type half has quite limited range
 
         attn_weights_T = attn_weights.transpose(1, 2)
@@ -202,11 +199,11 @@ class BiMultiHeadAttention(nn.Module):
         )
         if self.clamp_min_for_underflow:
             attn_weights_l = torch.clamp(
-                attn_weights_l, min=-50000
+                attn_weights_l, min=-50000,
             )  # Do not increase -50000, data type half has quite limited range
         if self.clamp_max_for_overflow:
             attn_weights_l = torch.clamp(
-                attn_weights_l, max=50000
+                attn_weights_l, max=50000,
             )  # Do not increase 50000, data type half has quite limited range
 
         # mask vison for language
@@ -238,12 +235,12 @@ class BiMultiHeadAttention(nn.Module):
 
         if attn_output_v.size() != (bsz * self.num_heads, tgt_len, self.head_dim):
             raise ValueError(
-                f"`attn_output_v` should be of size {(bsz, self.num_heads, tgt_len, self.head_dim)}, but is {attn_output_v.size()}"
+                f"`attn_output_v` should be of size {(bsz, self.num_heads, tgt_len, self.head_dim)}, but is {attn_output_v.size()}",
             )
 
         if attn_output_l.size() != (bsz * self.num_heads, src_len, self.head_dim):
             raise ValueError(
-                f"`attn_output_l` should be of size {(bsz, self.num_heads, src_len, self.head_dim)}, but is {attn_output_l.size()}"
+                f"`attn_output_l` should be of size {(bsz, self.num_heads, src_len, self.head_dim)}, but is {attn_output_l.size()}",
             )
 
         attn_output_v = attn_output_v.view(bsz, self.num_heads, tgt_len, self.head_dim)
@@ -272,14 +269,14 @@ class BiAttentionBlock(nn.Module):
         drop_path=0.0,
         init_values=1e-4,
         cfg=None,
-    ):
+    ) -> None:
         """
         Inputs:
             embed_dim - Dimensionality of input and attention feature vectors
             hidden_dim - Dimensionality of hidden layer in feed-forward network
                          (usually 2-4x larger than embed_dim)
             num_heads - Number of heads to use in the Multi-Head Attention block
-            dropout - Amount of dropout to apply in the feed-forward network
+            dropout - Amount of dropout to apply in the feed-forward network.
         """
         super(BiAttentionBlock, self).__init__()
 
@@ -297,17 +294,17 @@ class BiAttentionBlock(nn.Module):
         # add layer scale for training stability
         self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
         self.gamma_v = nn.Parameter(
-            init_values * torch.ones((v_dim)), requires_grad=True
+            init_values * torch.ones((v_dim)), requires_grad=True,
         )
         self.gamma_l = nn.Parameter(
-            init_values * torch.ones((l_dim)), requires_grad=True
+            init_values * torch.ones((l_dim)), requires_grad=True,
         )
 
     def forward(self, v, l, attention_mask_v=None, attention_mask_l=None):
         v = self.layer_norm_v(v)
         l = self.layer_norm_l(l)
         delta_v, delta_l = self.attn(
-            v, l, attention_mask_v=attention_mask_v, attention_mask_l=attention_mask_l
+            v, l, attention_mask_v=attention_mask_v, attention_mask_l=attention_mask_l,
         )
         # v, l = v + delta_v, l + delta_l
         v = v + self.drop_path(self.gamma_v * delta_v)

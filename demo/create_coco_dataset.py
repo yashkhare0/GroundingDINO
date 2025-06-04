@@ -1,9 +1,11 @@
-import typer
-from groundingdino.util.inference import load_model, load_image, predict
-from tqdm import tqdm
-import torchvision
-import torch
+from typing import Optional
+
 import fiftyone as fo
+import torchvision
+import typer
+from tqdm import tqdm
+
+from groundingdino.util.inference import load_image, load_model, predict
 
 
 def main(
@@ -16,19 +18,16 @@ def main(
     export_annotated_images: bool = True,
     weights_path: str = "groundingdino_swint_ogc.pth",
     config_path: str = "../../GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py",
-    subsample: int = None,
-):
+    subsample: Optional[int] = None,
+) -> None:
 
     model = load_model(config_path, weights_path)
 
     dataset = fo.Dataset.from_images_dir(image_directory)
 
-    samples = []
 
-    if subsample is not None:
-
-        if subsample < len(dataset):
-            dataset = dataset.take(subsample).clone()
+    if subsample is not None and subsample < len(dataset):
+        dataset = dataset.take(subsample).clone()
 
     for sample in tqdm(dataset):
 
@@ -53,7 +52,7 @@ def main(
                     label=phrase,
                     bounding_box=rel_box,
                     confidence=logit,
-                )
+                ),
             )
 
         # Store detections in a field name of your choice

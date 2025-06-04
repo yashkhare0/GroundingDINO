@@ -27,7 +27,7 @@ def get_sine_pos_embed(
     temperature: int = 10000,
     exchange_xy: bool = True,
 ):
-    """generate sine position embedding from a position tensor
+    """Generate sine position embedding from a position tensor
     Args:
         pos_tensor (torch.Tensor): shape: [..., n].
         num_pos_feats (int): projected shape for each float in the tensor.
@@ -45,24 +45,22 @@ def get_sine_pos_embed(
 
     def sine_func(x: torch.Tensor):
         sin_x = x * scale / dim_t
-        sin_x = torch.stack(
-            (sin_x[..., 0::2].sin(), sin_x[..., 1::2].cos()), dim=3
+        return torch.stack(
+            (sin_x[..., 0::2].sin(), sin_x[..., 1::2].cos()), dim=3,
         ).flatten(2)
-        return sin_x
 
     pos_res = [
         sine_func(x) for x in pos_tensor.split([1] * pos_tensor.shape[-1], dim=-1)
     ]
     if exchange_xy:
         pos_res[0], pos_res[1] = pos_res[1], pos_res[0]
-    pos_res = torch.cat(pos_res, dim=-1)
-    return pos_res
+    return torch.cat(pos_res, dim=-1)
 
 
 def gen_encoder_output_proposals(
-    memory: Tensor, memory_padding_mask: Tensor, spatial_shapes: Tensor, learnedwh=None
+    memory: Tensor, memory_padding_mask: Tensor, spatial_shapes: Tensor, learnedwh=None,
 ):
-    """
+    r"""
     Input:
         - memory: bs, \sum{hw}, d_model
         - memory_padding_mask: bs, \sum{hw}
@@ -70,14 +68,14 @@ def gen_encoder_output_proposals(
         - learnedwh: 2
     Output:
         - output_memory: bs, \sum{hw}, d_model
-        - output_proposals: bs, \sum{hw}, 4
+        - output_proposals: bs, \sum{hw}, 4.
     """
     N_, S_, C_ = memory.shape
     proposals = []
     _cur = 0
     for lvl, (H_, W_) in enumerate(spatial_shapes):
         mask_flatten_ = memory_padding_mask[:, _cur : (_cur + H_ * W_)].view(
-            N_, H_, W_, 1
+            N_, H_, W_, 1,
         )
         valid_H = torch.sum(~mask_flatten_[:, :, 0, 0], 1)
         valid_W = torch.sum(~mask_flatten_[:, 0, :, 0], 1)
@@ -91,7 +89,7 @@ def gen_encoder_output_proposals(
         grid = torch.cat([grid_x.unsqueeze(-1), grid_y.unsqueeze(-1)], -1)  # H_, W_, 2
 
         scale = torch.cat([valid_W.unsqueeze(-1), valid_H.unsqueeze(-1)], 1).view(
-            N_, 1, 1, 2
+            N_, 1, 1, 2,
         )
         grid = (grid.unsqueeze(0).expand(N_, -1, -1, -1) + 0.5) / scale
 
@@ -114,15 +112,15 @@ def gen_encoder_output_proposals(
     ).all(-1, keepdim=True)
     output_proposals = torch.log(output_proposals / (1 - output_proposals))  # unsigmoid
     output_proposals = output_proposals.masked_fill(
-        memory_padding_mask.unsqueeze(-1), float("inf")
+        memory_padding_mask.unsqueeze(-1), float("inf"),
     )
     output_proposals = output_proposals.masked_fill(
-        ~output_proposals_valid, float("inf")
+        ~output_proposals_valid, float("inf"),
     )
 
     output_memory = memory
     output_memory = output_memory.masked_fill(
-        memory_padding_mask.unsqueeze(-1), float(0)
+        memory_padding_mask.unsqueeze(-1), float(0),
     )
     output_memory = output_memory.masked_fill(~output_proposals_valid, float(0))
 
@@ -134,10 +132,10 @@ def gen_encoder_output_proposals(
 
 class RandomBoxPerturber:
     def __init__(
-        self, x_noise_scale=0.2, y_noise_scale=0.2, w_noise_scale=0.2, h_noise_scale=0.2
+        self, x_noise_scale=0.2, y_noise_scale=0.2, w_noise_scale=0.2, h_noise_scale=0.2,
     ) -> None:
         self.noise_scale = torch.Tensor(
-            [x_noise_scale, y_noise_scale, w_noise_scale, h_noise_scale]
+            [x_noise_scale, y_noise_scale, w_noise_scale, h_noise_scale],
         )
 
     def __call__(self, refanchors: Tensor) -> Tensor:
@@ -172,7 +170,7 @@ def sigmoid_focal_loss(
         gamma: Exponent of the modulating factor (1 - p_t) to
                balance easy vs hard examples.
     Returns:
-        Loss tensor
+        Loss tensor.
     """
     prob = inputs.sigmoid()
     ce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none")
@@ -190,14 +188,14 @@ def sigmoid_focal_loss(
 
 
 class MLP(nn.Module):
-    """Very simple multi-layer perceptron (also called FFN)"""
+    """Very simple multi-layer perceptron (also called FFN)."""
 
-    def __init__(self, input_dim, hidden_dim, output_dim, num_layers):
+    def __init__(self, input_dim, hidden_dim, output_dim, num_layers) -> None:
         super().__init__()
         self.num_layers = num_layers
         h = [hidden_dim] * (num_layers - 1)
         self.layers = nn.ModuleList(
-            nn.Linear(n, k) for n, k in zip([input_dim] + h, h + [output_dim])
+            nn.Linear(n, k) for n, k in zip([input_dim, *h], [*h, output_dim])
         )
 
     def forward(self, x):
@@ -207,7 +205,7 @@ class MLP(nn.Module):
 
 
 def _get_activation_fn(activation, d_model=256, batch_dim=0):
-    """Return an activation function given a string"""
+    """Return an activation function given a string."""
     if activation == "relu":
         return F.relu
     if activation == "gelu":
@@ -233,10 +231,10 @@ def gen_sineembed_for_position(pos_tensor):
     pos_x = x_embed[:, :, None] / dim_t
     pos_y = y_embed[:, :, None] / dim_t
     pos_x = torch.stack(
-        (pos_x[:, :, 0::2].sin(), pos_x[:, :, 1::2].cos()), dim=3
+        (pos_x[:, :, 0::2].sin(), pos_x[:, :, 1::2].cos()), dim=3,
     ).flatten(2)
     pos_y = torch.stack(
-        (pos_y[:, :, 0::2].sin(), pos_y[:, :, 1::2].cos()), dim=3
+        (pos_y[:, :, 0::2].sin(), pos_y[:, :, 1::2].cos()), dim=3,
     ).flatten(2)
     if pos_tensor.size(-1) == 2:
         pos = torch.cat((pos_y, pos_x), dim=2)
@@ -244,13 +242,13 @@ def gen_sineembed_for_position(pos_tensor):
         w_embed = pos_tensor[:, :, 2] * scale
         pos_w = w_embed[:, :, None] / dim_t
         pos_w = torch.stack(
-            (pos_w[:, :, 0::2].sin(), pos_w[:, :, 1::2].cos()), dim=3
+            (pos_w[:, :, 0::2].sin(), pos_w[:, :, 1::2].cos()), dim=3,
         ).flatten(2)
 
         h_embed = pos_tensor[:, :, 3] * scale
         pos_h = h_embed[:, :, None] / dim_t
         pos_h = torch.stack(
-            (pos_h[:, :, 0::2].sin(), pos_h[:, :, 1::2].cos()), dim=3
+            (pos_h[:, :, 0::2].sin(), pos_h[:, :, 1::2].cos()), dim=3,
         ).flatten(2)
 
         pos = torch.cat((pos_y, pos_x, pos_w, pos_h), dim=2)
@@ -260,7 +258,7 @@ def gen_sineembed_for_position(pos_tensor):
 
 
 class ContrastiveEmbed(nn.Module):
-    def __init__(self, max_text_len=256):
+    def __init__(self, max_text_len=256) -> None:
         """
         Args:
             max_text_len: max length of text.
@@ -269,7 +267,7 @@ class ContrastiveEmbed(nn.Module):
         self.max_text_len = max_text_len
 
     def forward(self, x, text_dict):
-        """_summary_
+        """_summary_.
 
         Args:
             x (_type_): _description_
@@ -292,7 +290,7 @@ class ContrastiveEmbed(nn.Module):
 
         # padding to max_text_len
         new_res = torch.full(
-            (*res.shape[:-1], self.max_text_len), float("-inf"), device=res.device
+            (*res.shape[:-1], self.max_text_len), float("-inf"), device=res.device,
         )
         new_res[..., : res.shape[-1]] = res
 

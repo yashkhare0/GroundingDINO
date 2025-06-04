@@ -6,13 +6,13 @@ import torch
 
 
 def create_positive_map_from_span(tokenized, token_span, max_text_len=256):
-    """construct a map such that positive_map[i,j] = True iff box i is associated to token j
+    """Construct a map such that positive_map[i,j] = True iff box i is associated to token j
     Input:
         - tokenized:
             - input_ids: Tensor[1, ntokens]
             - attention_mask: Tensor[1, ntokens]
         - token_span: list with length num_boxes.
-            - each item: [start_idx, end_idx]
+            - each item: [start_idx, end_idx].
     """
     positive_map = torch.zeros((len(token_span), max_text_len), dtype=torch.float)
     for j, tok_list in enumerate(token_span):
@@ -54,7 +54,7 @@ def build_captions_and_token_span(cat_list, force_lowercase):
             {
                 'dog': [[0, 2]],
                 ...
-            }
+            }.
     """
 
     cat2tokenspan = {}
@@ -88,7 +88,7 @@ def build_captions_and_token_span(cat_list, force_lowercase):
 
 
 def build_id2posspan_and_caption(category_dict: dict):
-    """Build id2pos_span and caption from category_dict
+    """Build id2pos_span and caption from category_dict.
 
     Args:
         category_dict (dict): category_dict

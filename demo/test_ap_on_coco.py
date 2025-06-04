@@ -1,31 +1,27 @@
 import argparse
-import os
-import sys
 import time
 
-import numpy as np
 import torch
-import torch.nn as nn
-from torch.utils.data import DataLoader, DistributedSampler
-
-from groundingdino.models import build_model
-import groundingdino.datasets.transforms as T
-from groundingdino.util import box_ops, get_tokenlizer
-from groundingdino.util.misc import clean_state_dict, collate_fn
-from groundingdino.util.slconfig import SLConfig
 
 # from torchvision.datasets import CocoDetection
 import torchvision
+from torch import nn
+from torch.utils.data import DataLoader
 
+import groundingdino.datasets.transforms as T
+from groundingdino.datasets.cocogrounding_eval import CocoGroundingEvaluator
+from groundingdino.models import build_model
+from groundingdino.util import box_ops, get_tokenlizer
+from groundingdino.util.misc import clean_state_dict, collate_fn
+from groundingdino.util.slconfig import SLConfig
 from groundingdino.util.vl_utils import (
     build_captions_and_token_span,
     create_positive_map_from_span,
 )
-from groundingdino.datasets.cocogrounding_eval import CocoGroundingEvaluator
 
 
 def load_model(
-    model_config_path: str, model_checkpoint_path: str, device: str = "cuda"
+    model_config_path: str, model_checkpoint_path: str, device: str = "cuda",
 ):
     args = SLConfig.fromfile(model_config_path)
     args.device = device
@@ -37,7 +33,7 @@ def load_model(
 
 
 class CocoDetection(torchvision.datasets.CocoDetection):
-    def __init__(self, img_folder, ann_file, transforms):
+    def __init__(self, img_folder, ann_file, transforms) -> None:
         super().__init__(img_folder, ann_file)
         self._transforms = transforms
 
@@ -69,7 +65,7 @@ class CocoDetection(torchvision.datasets.CocoDetection):
 
 
 class PostProcessCocoGrounding(nn.Module):
-    """This module converts the model's output into the format expected by the coco api"""
+    """This module converts the model's output into the format expected by the coco api."""
 
     def __init__(self, num_select=300, coco_api=None, tokenlizer=None) -> None:
         super().__init__()
@@ -81,7 +77,7 @@ class PostProcessCocoGrounding(nn.Module):
         captions, cat2tokenspan = build_captions_and_token_span(cat_list, True)
         tokenspanlist = [cat2tokenspan[cat] for cat in cat_list]
         positive_map = create_positive_map_from_span(
-            tokenlizer(captions), tokenspanlist
+            tokenlizer(captions), tokenspanlist,
         )  # 80, 256. normed
 
         id_map = {
@@ -180,7 +176,7 @@ class PostProcessCocoGrounding(nn.Module):
             outputs: raw outputs of the model
             target_sizes: tensor of dimension [batch_size x 2] containing the size of each images of the batch
                           For evaluation, this must be the original image size (before any data augmentation)
-                          For visualization, this should be the image size after data augment, but before padding
+                          For visualization, this should be the image size after data augment, but before padding.
         """
         num_select = self.num_select
         out_logits, out_bbox = outputs["pred_logits"], outputs["pred_boxes"]
@@ -199,16 +195,13 @@ class PostProcessCocoGrounding(nn.Module):
 
         prob = prob_to_label
         topk_values, topk_indexes = torch.topk(
-            prob.view(out_logits.shape[0], -1), num_select, dim=1
+            prob.view(out_logits.shape[0], -1), num_select, dim=1,
         )
         scores = topk_values
         topk_boxes = topk_indexes // prob.shape[2]
         labels = topk_indexes % prob.shape[2]
 
-        if not_to_xyxy:
-            boxes = out_bbox
-        else:
-            boxes = box_ops.box_cxcywh_to_xyxy(out_bbox)
+        boxes = out_bbox if not_to_xyxy else box_ops.box_cxcywh_to_xyxy(out_bbox)
 
         boxes = torch.gather(boxes, 1, topk_boxes.unsqueeze(-1).repeat(1, 1, 4))
 
@@ -217,15 +210,14 @@ class PostProcessCocoGrounding(nn.Module):
         scale_fct = torch.stack([img_w, img_h, img_w, img_h], dim=1)
         boxes = boxes * scale_fct[:, None, :]
 
-        results = [
+        return [
             {"scores": s, "labels": l, "boxes": b}
             for s, l, b in zip(scores, labels, boxes)
         ]
 
-        return results
 
 
-def main(args):
+def main(args) -> None:
     # config
     cfg = SLConfig.fromfile(args.config_file)
 
@@ -240,7 +232,7 @@ def main(args):
             T.RandomResize([800], max_size=1333),
             T.ToTensor(),
             T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-        ]
+        ],
     )
     dataset = CocoDetection(args.image_dir, args.anno_path, transforms=transform)
     data_loader = DataLoader(
@@ -254,7 +246,7 @@ def main(args):
     # build post processor
     tokenlizer = get_tokenlizer.get_tokenlizer(cfg.text_encoder_type)
     postprocessor = PostProcessCocoGrounding(
-        coco_api=dataset.coco, tokenlizer=tokenlizer
+        coco_api=dataset.coco, tokenlizer=tokenlizer,
     )
 
     # build evaluator
@@ -264,7 +256,6 @@ def main(args):
     category_dict = dataset.coco.dataset["categories"]
     cat_list = [item["name"] for item in category_dict]
     caption = " . ".join(cat_list) + " ."
-    print("Input text prompt:", caption)
 
     # run inference
     start = time.time()
@@ -278,7 +269,7 @@ def main(args):
         outputs = model(images, captions=input_captions)
 
         orig_target_sizes = torch.stack([t["orig_size"] for t in targets], dim=0).to(
-            images.device
+            images.device,
         )
         results = postprocessor(outputs, orig_target_sizes)
         cocogrounding_res = {
@@ -288,23 +279,19 @@ def main(args):
 
         if (i + 1) % 30 == 0:
             used_time = time.time() - start
-            eta = len(data_loader) / (i + 1e-5) * used_time - used_time
-            print(
-                f"processed {i}/{len(data_loader)} images. time: {used_time:.2f}s, ETA: {eta:.2f}s"
-            )
+            len(data_loader) / (i + 1e-5) * used_time - used_time
 
     evaluator.synchronize_between_processes()
     evaluator.accumulate()
     evaluator.summarize()
 
-    print("Final results:", evaluator.coco_eval["bbox"].stats.tolist())
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("Grounding DINO eval on COCO", add_help=True)
     # load model
     parser.add_argument(
-        "--config_file", "-c", type=str, required=True, help="path to config file"
+        "--config_file", "-c", type=str, required=True, help="path to config file",
     )
     parser.add_argument(
         "--checkpoint_path",
@@ -314,19 +301,19 @@ if __name__ == "__main__":
         help="path to checkpoint file",
     )
     parser.add_argument(
-        "--device", type=str, default="cuda", help="running device (default: cuda)"
+        "--device", type=str, default="cuda", help="running device (default: cuda)",
     )
 
     # post processing
     parser.add_argument(
-        "--num_select", type=int, default=300, help="number of topk to select"
+        "--num_select", type=int, default=300, help="number of topk to select",
     )
 
     # coco info
     parser.add_argument("--anno_path", type=str, required=True, help="coco root")
     parser.add_argument("--image_dir", type=str, required=True, help="coco image dir")
     parser.add_argument(
-        "--num_workers", type=int, default=4, help="number of workers for dataloader"
+        "--num_workers", type=int, default=4, help="number of workers for dataloader",
     )
     args = parser.parse_args()
 

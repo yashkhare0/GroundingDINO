@@ -14,5 +14,4 @@ def build_model(args):
 
     assert args.modelname in MODULE_BUILD_FUNCS._module_dict
     build_func = MODULE_BUILD_FUNCS.get(args.modelname)
-    model = build_func(args)
-    return model
+    return build_func(args)

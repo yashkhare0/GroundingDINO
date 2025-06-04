@@ -12,18 +12,17 @@ from transformers import AutoTokenizer
 from groundingdino.util.slconfig import SLConfig
 
 
-def slprint(x, name="x"):
+def slprint(x, name="x") -> None:
     if isinstance(x, (torch.Tensor, np.ndarray)):
-        print(f"{name}.shape:", x.shape)
+        pass
     elif isinstance(x, (tuple, list)):
-        print("type x:", type(x))
         for i in range(min(10, len(x))):
             slprint(x[i], f"{name}[{i}]")
     elif isinstance(x, dict):
         for k, v in x.items():
             slprint(v, f"{name}[{k}]")
     else:
-        print(f"{name}.type:", type(x))
+        pass
 
 
 def clean_state_dict(state_dict):
@@ -36,10 +35,14 @@ def clean_state_dict(state_dict):
 
 
 def renorm(
-    img: torch.FloatTensor, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+    img: torch.FloatTensor, mean=None, std=None,
 ) -> torch.FloatTensor:
     # img: tensor(3,H,W) or tensor(B,3,H,W)
     # return: same as img
+    if std is None:
+        std = [0.229, 0.224, 0.225]
+    if mean is None:
+        mean = [0.485, 0.456, 0.406]
     assert img.dim() == 3 or img.dim() == 4, (
         "img.dim() should be 3 or 4 but %d" % img.dim()
     )
@@ -172,41 +175,36 @@ def to_device(item, device):
         return {k: to_device(v, device) for k, v in item.items()}
     else:
         raise NotImplementedError(
-            "Call Shilong if you use other containers! type: {}".format(type(item))
+            "Call Shilong if you use other containers! type: {}".format(type(item)),
         )
 
 
-#
 def get_gaussian_mean(x, axis, other_axis, softmax=True):
     """
 
     Args:
         x (float): Input images(BxCxHxW)
         axis (int): The index for weighted mean
-        other_axis (int): The other index
+        other_axis (int): The other index.
 
     Returns: weighted index for axis, BxC
 
     """
     mat2line = torch.sum(x, axis=other_axis)
     # mat2line = mat2line / mat2line.mean() * 10
-    if softmax:
-        u = torch.softmax(mat2line, axis=2)
-    else:
-        u = mat2line / (mat2line.sum(2, keepdim=True) + 1e-6)
+    u = torch.softmax(mat2line, axis=2) if softmax else mat2line / (mat2line.sum(2, keepdim=True) + 1e-06)
     size = x.shape[axis]
     ind = torch.linspace(0, 1, size).to(x.device)
     batch = x.shape[0]
     channel = x.shape[1]
     index = ind.repeat([batch, channel, 1])
-    mean_position = torch.sum(index * u, dim=2)
-    return mean_position
+    return torch.sum(index * u, dim=2)
 
 
 def get_expected_points_from_map(hm, softmax=True):
     """get_gaussian_map_from_points
         B,C,H,W -> B,N,2 float(0, 1) float(0, 1)
-        softargmax function
+        softargmax function.
 
     Args:
         hm (float): Input images(BxCxHxW)
@@ -226,11 +224,11 @@ def get_expected_points_from_map(hm, softmax=True):
 # Positional encoding (section 5.1)
 # borrow from nerf
 class Embedder:
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         self.kwargs = kwargs
         self.create_embedding_fn()
 
-    def create_embedding_fn(self):
+    def create_embedding_fn(self) -> None:
         embed_fns = []
         d = self.kwargs["input_dims"]
         out_dim = 0
@@ -259,7 +257,7 @@ class Embedder:
 
 
 def get_embedder(multires, i=0):
-    import torch.nn as nn
+    from torch import nn
 
     if i == -1:
         return nn.Identity(), 3
@@ -274,7 +272,8 @@ def get_embedder(multires, i=0):
     }
 
     embedder_obj = Embedder(**embed_kwargs)
-    embed = lambda x, eo=embedder_obj: eo.embed(x)
+    def embed(x, eo=embedder_obj):
+        return eo.embed(x)
     return embed, embedder_obj.out_dim
 
 
@@ -285,10 +284,10 @@ class APOPMeter:
         self.tn = 0
         self.fn = 0
 
-    def update(self, pred, gt):
+    def update(self, pred, gt) -> None:
         """
         Input:
-            pred, gt: Tensor()
+            pred, gt: Tensor().
         """
         assert pred.shape == gt.shape
         self.tp += torch.logical_and(pred == 1, gt == 1).sum().item()
@@ -296,7 +295,7 @@ class APOPMeter:
         self.tn += torch.logical_and(pred == 0, gt == 0).sum().item()
         self.tn += torch.logical_and(pred == 1, gt == 0).sum().item()
 
-    def update_cm(self, tp, fp, tn, fn):
+    def update_cm(self, tp, fp, tn, fn) -> None:
         self.tp += tp
         self.fp += fp
         self.tn += tn
@@ -378,7 +377,7 @@ class NiceRepr:
     """
 
     def __nice__(self):
-        """str: a "nice" summary string describing this module"""
+        """str: a "nice" summary string describing this module."""
         if hasattr(self, "__len__"):
             # It is a common pattern for objects to use __len__ in __nice__
             # As a convenience we define a default __nice__ for these objects
@@ -386,11 +385,11 @@ class NiceRepr:
         else:
             # In all other cases force the subclass to overload __nice__
             raise NotImplementedError(
-                f"Define the __nice__ method for {self.__class__!r}"
+                f"Define the __nice__ method for {self.__class__!r}",
             )
 
-    def __repr__(self):
-        """str: the string of the module"""
+    def __repr__(self) -> str:
+        """str: the string of the module."""
         try:
             nice = self.__nice__()
             classname = self.__class__.__name__
@@ -399,8 +398,8 @@ class NiceRepr:
             warnings.warn(str(ex), category=RuntimeWarning)
             return object.__repr__(self)
 
-    def __str__(self):
-        """str: the string of the module"""
+    def __str__(self) -> str:
+        """str: the string of the module."""
         try:
             classname = self.__class__.__name__
             nice = self.__nice__()
@@ -442,7 +441,7 @@ def ensure_rng(rng=None):
 
 
 def random_boxes(num=1, scale=1, rng=None):
-    """Simple version of ``kwimage.Boxes.random``
+    """Simple version of ``kwimage.Boxes.random``.
 
     Returns:
         Tensor: shape (n, 4) in x1, y1, x2, y2 format.
@@ -474,12 +473,11 @@ def random_boxes(num=1, scale=1, rng=None):
     tlbr[:, 2] = br_x * scale
     tlbr[:, 3] = br_y * scale
 
-    boxes = torch.from_numpy(tlbr)
-    return boxes
+    return torch.from_numpy(tlbr)
 
 
 class ModelEma(torch.nn.Module):
-    def __init__(self, model, decay=0.9997, device=None):
+    def __init__(self, model, decay=0.9997, device=None) -> None:
         super(ModelEma, self).__init__()
         # make a copy of the model for accumulating moving average of weights
         self.module = deepcopy(model)
@@ -492,21 +490,21 @@ class ModelEma(torch.nn.Module):
         if self.device is not None:
             self.module.to(device=device)
 
-    def _update(self, model, update_fn):
+    def _update(self, model, update_fn) -> None:
         with torch.no_grad():
             for ema_v, model_v in zip(
-                self.module.state_dict().values(), model.state_dict().values()
+                self.module.state_dict().values(), model.state_dict().values(),
             ):
                 if self.device is not None:
                     model_v = model_v.to(device=self.device)
                 ema_v.copy_(update_fn(ema_v, model_v))
 
-    def update(self, model):
+    def update(self, model) -> None:
         self._update(
-            model, update_fn=lambda e, m: self.decay * e + (1.0 - self.decay) * m
+            model, update_fn=lambda e, m: self.decay * e + (1.0 - self.decay) * m,
         )
 
-    def set(self, model):
+    def set(self, model) -> None:
         self._update(model, update_fn=lambda e, m: m)
 
 
@@ -524,8 +522,9 @@ class BestMetricSingle:
             return new_res > old_res
         if self.better == "small":
             return new_res < old_res
+        return None
 
-    def update(self, new_res, ep):
+    def update(self, new_res, ep) -> bool:
         if self.isbetter(new_res, self.best_res):
             self.best_res = new_res
             self.best_ep = ep
@@ -554,18 +553,15 @@ class BestMetricHolder:
             self.best_regular = BestMetricSingle(init_res, better)
 
     def update(self, new_res, epoch, is_ema=False):
-        """
-        return if the results is the best.
-        """
+        """Return if the results is the best."""
         if not self.use_ema:
             return self.best_all.update(new_res, epoch)
+        elif is_ema:
+            self.best_ema.update(new_res, epoch)
+            return self.best_all.update(new_res, epoch)
         else:
-            if is_ema:
-                self.best_ema.update(new_res, epoch)
-                return self.best_all.update(new_res, epoch)
-            else:
-                self.best_regular.update(new_res, epoch)
-                return self.best_all.update(new_res, epoch)
+            self.best_regular.update(new_res, epoch)
+            return self.best_all.update(new_res, epoch)
 
     def summary(self):
         if not self.use_ema:

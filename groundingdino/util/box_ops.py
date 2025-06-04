@@ -1,7 +1,5 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
-"""
-Utilities for bounding box manipulation and GIoU.
-"""
+"""Utilities for bounding box manipulation and GIoU."""
 import torch
 from torchvision.ops.boxes import box_area
 
@@ -38,7 +36,7 @@ def box_iou(boxes1, boxes2):
 
 def generalized_box_iou(boxes1, boxes2):
     """
-    Generalized IoU from https://giou.stanford.edu/
+    Generalized IoU from https://giou.stanford.edu/.
 
     The boxes should be in [x0, y0, x1, y1] format
 
@@ -81,7 +79,7 @@ def box_iou_pairwise(boxes1, boxes2):
 
 def generalized_box_iou_pairwise(boxes1, boxes2):
     """
-    Generalized IoU from https://giou.stanford.edu/
+    Generalized IoU from https://giou.stanford.edu/.
 
     Input:
         - boxes1, boxes2: N,4
@@ -105,7 +103,7 @@ def generalized_box_iou_pairwise(boxes1, boxes2):
 
 
 def masks_to_boxes(masks):
-    """Compute the bounding boxes around the provided masks
+    """Compute the bounding boxes around the provided masks.
 
     The masks should be in format [N, H, W] where N is the number of masks, (H, W) are the spatial dimensions.
 
