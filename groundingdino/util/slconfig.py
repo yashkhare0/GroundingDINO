@@ -82,7 +82,8 @@ class SLConfig(object):
         if filename.lower().endswith(".py"):
             with tempfile.TemporaryDirectory() as temp_config_dir:
                 temp_config_file = tempfile.NamedTemporaryFile(
-                    dir=temp_config_dir, suffix=".py",
+                    dir=temp_config_dir,
+                    suffix=".py",
                 )
                 temp_config_name = osp.basename(temp_config_file.name)
                 if os.name == "nt":
@@ -246,7 +247,6 @@ class SLConfig(object):
                 attr_str = f"{k!s}={v_str}"
             return _indent(attr_str, indent)
 
-
         def _format_list(k, v, use_mapping=False):
             # check if all items in the list are dict
             if all(isinstance(_, dict) for _ in v):
@@ -384,7 +384,8 @@ class SLConfig(object):
 
         cfg_dict = super(SLConfig, self).__getattribute__("_cfg_dict")
         super(SLConfig, self).__setattr__(
-            "_cfg_dict", SLConfig._merge_a_into_b(option_cfg_dict, cfg_dict),
+            "_cfg_dict",
+            SLConfig._merge_a_into_b(option_cfg_dict, cfg_dict),
         )
 
     # for multiprocess

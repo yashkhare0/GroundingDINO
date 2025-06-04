@@ -157,7 +157,8 @@ def pad(image, target, padding):
     target["size"] = torch.tensor(padded_image.size[::-1])
     if "masks" in target:
         target["masks"] = torch.nn.functional.pad(
-            target["masks"], (0, padding[0], 0, padding[1]),
+            target["masks"],
+            (0, padding[0], 0, padding[1]),
         )
     return padded_image, target
 
@@ -180,7 +181,9 @@ class RandomCrop(object):
 
 
 class RandomSizeCrop(object):
-    def __init__(self, min_size: int, max_size: int, respect_boxes: bool = False) -> None:
+    def __init__(
+        self, min_size: int, max_size: int, respect_boxes: bool = False,
+    ) -> None:
         # respect_boxes:    True to keep all boxes
         #                   False to tolerence box filter
         self.min_size = min_size

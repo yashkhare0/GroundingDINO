@@ -22,7 +22,8 @@ class Registry(object):
 
     def __repr__(self) -> str:
         return self.__class__.__name__ + "(name={}, items={})".format(
-            self._name, list(self._module_dict.keys()),
+            self._name,
+            list(self._module_dict.keys()),
         )
 
     def __len__(self) -> int:

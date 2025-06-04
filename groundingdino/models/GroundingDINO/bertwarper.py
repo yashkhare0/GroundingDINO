@@ -74,7 +74,11 @@ class BertModelWarper(nn.Module):
             return_dict if return_dict is not None else self.config.use_return_dict
         )
 
-        use_cache = (use_cache if use_cache is not None else self.config.use_cache) if self.config.is_decoder else False
+        use_cache = (
+            (use_cache if use_cache is not None else self.config.use_cache)
+            if self.config.is_decoder
+            else False
+        )
 
         if input_ids is not None and inputs_embeds is not None:
             raise ValueError(
@@ -98,7 +102,8 @@ class BertModelWarper(nn.Module):
 
         if attention_mask is None:
             attention_mask = torch.ones(
-                ((batch_size, seq_length + past_key_values_length)), device=device,
+                ((batch_size, seq_length + past_key_values_length)),
+                device=device,
             )
         if token_type_ids is None:
             token_type_ids = torch.zeros(input_shape, dtype=torch.long, device=device)
@@ -106,7 +111,9 @@ class BertModelWarper(nn.Module):
         # We can provide a self-attention mask of dimensions [batch_size, from_seq_length, to_seq_length]
         # ourselves in which case we just need to make it broadcastable to all heads.
         extended_attention_mask: torch.Tensor = self.get_extended_attention_mask(
-            attention_mask, input_shape, device,
+            attention_mask,
+            input_shape,
+            device,
         )
 
         # If a 2D or 3D attention mask is provided for the cross-attention
@@ -216,10 +223,14 @@ def generate_masks_with_special_tokens(tokenized, special_tokens_list, tokenizer
             position_ids[row, col] = 0
         else:
             attention_mask[
-                row, previous_col + 1 : col + 1, previous_col + 1 : col + 1,
+                row,
+                previous_col + 1 : col + 1,
+                previous_col + 1 : col + 1,
             ] = True
             position_ids[row, previous_col + 1 : col + 1] = torch.arange(
-                0, col - previous_col, device=input_ids.device,
+                0,
+                col - previous_col,
+                device=input_ids.device,
             )
 
         previous_col = col
@@ -232,7 +243,9 @@ def generate_masks_with_special_tokens(tokenized, special_tokens_list, tokenizer
 
 
 def generate_masks_with_special_tokens_and_transfer_map(
-    tokenized, special_tokens_list, tokenizer,
+    tokenized,
+    special_tokens_list,
+    tokenizer,
 ):
     """Generate attention mask between each pair of special tokens
     Args:
@@ -268,10 +281,14 @@ def generate_masks_with_special_tokens_and_transfer_map(
             position_ids[row, col] = 0
         else:
             attention_mask[
-                row, previous_col + 1 : col + 1, previous_col + 1 : col + 1,
+                row,
+                previous_col + 1 : col + 1,
+                previous_col + 1 : col + 1,
             ] = True
             position_ids[row, previous_col + 1 : col + 1] = torch.arange(
-                0, col - previous_col, device=input_ids.device,
+                0,
+                col - previous_col,
+                device=input_ids.device,
             )
             c2t_maski = torch.zeros((num_token), device=input_ids.device).bool()
             c2t_maski[previous_col + 1 : col] = True

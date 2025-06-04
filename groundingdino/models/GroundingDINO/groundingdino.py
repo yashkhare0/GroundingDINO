@@ -101,7 +101,9 @@ class GroundingDINO(nn.Module):
         self.bert = BertModelWarper(bert_model=self.bert)
 
         self.feat_map = nn.Linear(
-            self.bert.config.hidden_size, self.hidden_dim, bias=True,
+            self.bert.config.hidden_size,
+            self.hidden_dim,
+            bias=True,
         )
         nn.init.constant_(self.feat_map.bias.data, 0)
         nn.init.xavier_uniform_(self.feat_map.weight.data)
@@ -128,7 +130,11 @@ class GroundingDINO(nn.Module):
                 input_proj_list.append(
                     nn.Sequential(
                         nn.Conv2d(
-                            in_channels, hidden_dim, kernel_size=3, stride=2, padding=1,
+                            in_channels,
+                            hidden_dim,
+                            kernel_size=3,
+                            stride=2,
+                            padding=1,
                         ),
                         nn.GroupNorm(32, hidden_dim),
                     ),
@@ -243,7 +249,9 @@ class GroundingDINO(nn.Module):
            - "aux_outputs": Optional, only returned when auxilary losses are activated. It is a list of
                             dictionnaries containing the two above keys for each decoder layer.
         """
-        captions = kw["captions"] if targets is None else [t["caption"] for t in targets]
+        captions = (
+            kw["captions"] if targets is None else [t["caption"] for t in targets]
+        )
 
         # encoder texts
         tokenized = self.tokenizer(captions, padding="longest", return_tensors="pt").to(
@@ -254,20 +262,26 @@ class GroundingDINO(nn.Module):
             position_ids,
             cate_to_token_mask_list,
         ) = generate_masks_with_special_tokens_and_transfer_map(
-            tokenized, self.specical_tokens, self.tokenizer,
+            tokenized,
+            self.specical_tokens,
+            self.tokenizer,
         )
 
         if text_self_attention_masks.shape[1] > self.max_text_len:
             text_self_attention_masks = text_self_attention_masks[
-                :, : self.max_text_len, : self.max_text_len,
+                :,
+                : self.max_text_len,
+                : self.max_text_len,
             ]
             position_ids = position_ids[:, : self.max_text_len]
             tokenized["input_ids"] = tokenized["input_ids"][:, : self.max_text_len]
             tokenized["attention_mask"] = tokenized["attention_mask"][
-                :, : self.max_text_len,
+                :,
+                : self.max_text_len,
             ]
             tokenized["token_type_ids"] = tokenized["token_type_ids"][
-                :, : self.max_text_len,
+                :,
+                : self.max_text_len,
             ]
 
         # extract text embeddings
@@ -295,7 +309,9 @@ class GroundingDINO(nn.Module):
             text_token_mask = text_token_mask[:, : self.max_text_len]
             position_ids = position_ids[:, : self.max_text_len]
             text_self_attention_masks = text_self_attention_masks[
-                :, : self.max_text_len, : self.max_text_len,
+                :,
+                : self.max_text_len,
+                : self.max_text_len,
             ]
 
         text_dict = {
@@ -321,7 +337,11 @@ class GroundingDINO(nn.Module):
         if self.num_feature_levels > len(srcs):
             _len_srcs = len(srcs)
             for l in range(_len_srcs, self.num_feature_levels):
-                src = self.input_proj[l](self.features[-1].tensors) if l == _len_srcs else self.input_proj[l](srcs[-1])
+                src = (
+                    self.input_proj[l](self.features[-1].tensors)
+                    if l == _len_srcs
+                    else self.input_proj[l](srcs[-1])
+                )
                 m = samples.mask
                 mask = F.interpolate(m[None].float(), size=src.shape[-2:]).to(
                     torch.bool,
@@ -421,4 +441,3 @@ def build_groundingdino(args):
         sub_sentence_present=sub_sentence_present,
         max_text_len=args.max_text_len,
     )
-

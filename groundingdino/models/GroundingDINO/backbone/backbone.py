@@ -233,7 +233,8 @@ def build_backbone(args):
     model = Joiner(backbone, position_embedding)
     model.num_channels = bb_num_channels
     assert isinstance(
-        bb_num_channels, List,
+        bb_num_channels,
+        List,
     ), "bb_num_channels is expected to be a List but {}".format(type(bb_num_channels))
     # import ipdb; ipdb.set_trace()
     return model

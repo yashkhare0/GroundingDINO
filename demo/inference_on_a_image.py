@@ -74,7 +74,8 @@ def load_model(model_config_path, model_checkpoint_path, cpu_only=False):
     model = build_model(args)
     checkpoint = torch.load(model_checkpoint_path, map_location="cpu")
     model.load_state_dict(
-        clean_state_dict(checkpoint["model"]), strict=False,
+        clean_state_dict(checkpoint["model"]),
+        strict=False,
     )
     _ = model.eval()
     return model
@@ -120,7 +121,9 @@ def get_grounding_output(
         pred_phrases = []
         for logit, _box in zip(logits_filt, boxes_filt):
             pred_phrase = get_phrases_from_posmap(
-                logit > text_threshold, tokenized, tokenlizer,
+                logit > text_threshold,
+                tokenized,
+                tokenlizer,
             )
             if with_logits:
                 pred_phrases.append(pred_phrase + f"({str(logit.max().item())[:4]})")
@@ -129,7 +132,8 @@ def get_grounding_output(
     else:
         # given-phrase mode
         positive_maps = create_positive_map_from_span(
-            model.tokenizer(text_prompt), token_span=token_spans,
+            model.tokenizer(text_prompt),
+            token_span=token_spans,
         ).to(
             image.device,
         )  # n_phrase, 256
@@ -164,7 +168,11 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser("Grounding DINO example", add_help=True)
     parser.add_argument(
-        "--config_file", "-c", type=str, required=True, help="path to config file",
+        "--config_file",
+        "-c",
+        type=str,
+        required=True,
+        help="path to config file",
     )
     parser.add_argument(
         "--checkpoint_path",
@@ -174,10 +182,18 @@ if __name__ == "__main__":
         help="path to checkpoint file",
     )
     parser.add_argument(
-        "--image_path", "-i", type=str, required=True, help="path to image file",
+        "--image_path",
+        "-i",
+        type=str,
+        required=True,
+        help="path to image file",
     )
     parser.add_argument(
-        "--text_prompt", "-t", type=str, required=True, help="text prompt",
+        "--text_prompt",
+        "-t",
+        type=str,
+        required=True,
+        help="text prompt",
     )
     parser.add_argument(
         "--output_dir",
@@ -189,10 +205,16 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--box_threshold", type=float, default=0.3, help="box threshold",
+        "--box_threshold",
+        type=float,
+        default=0.3,
+        help="box threshold",
     )
     parser.add_argument(
-        "--text_threshold", type=float, default=0.25, help="text threshold",
+        "--text_threshold",
+        type=float,
+        default=0.25,
+        help="text threshold",
     )
     parser.add_argument(
         "--token_spans",
@@ -206,7 +228,9 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--cpu-only", action="store_true", help="running on cpu only!, default=False",
+        "--cpu-only",
+        action="store_true",
+        help="running on cpu only!, default=False",
     )
     args = parser.parse_args()
 

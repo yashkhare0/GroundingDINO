@@ -132,7 +132,10 @@ def multi_scale_deformable_attn_pytorch(
     # (bs, num_heads, num_queries, num_levels, num_points) ->
     # (bs, num_heads, 1, num_queries, num_levels*num_points)
     attention_weights = attention_weights.transpose(1, 2).reshape(
-        bs * num_heads, 1, num_queries, num_levels * num_points,
+        bs * num_heads,
+        1,
+        num_queries,
+        num_levels * num_points,
     )
     output = (
         (torch.stack(sampling_value_list, dim=-2).flatten(-2) * attention_weights)
@@ -173,7 +176,8 @@ class MultiScaleDeformableAttention(nn.Module):
         if embed_dim % num_heads != 0:
             raise ValueError(
                 "embed_dim must be divisible by num_heads, but got {} and {}".format(
-                    embed_dim, num_heads,
+                    embed_dim,
+                    num_heads,
                 ),
             )
         head_dim = embed_dim // num_heads
@@ -194,10 +198,12 @@ class MultiScaleDeformableAttention(nn.Module):
         self.num_levels = num_levels
         self.num_points = num_points
         self.sampling_offsets = nn.Linear(
-            embed_dim, num_heads * num_levels * num_points * 2,
+            embed_dim,
+            num_heads * num_levels * num_points * 2,
         )
         self.attention_weights = nn.Linear(
-            embed_dim, num_heads * num_levels * num_points,
+            embed_dim,
+            num_heads * num_levels * num_points,
         )
         self.value_proj = nn.Linear(embed_dim, embed_dim)
         self.output_proj = nn.Linear(embed_dim, embed_dim)
@@ -299,10 +305,18 @@ class MultiScaleDeformableAttention(nn.Module):
             value = value.masked_fill(key_padding_mask[..., None], float(0))
         value = value.view(bs, num_value, self.num_heads, -1)
         sampling_offsets = self.sampling_offsets(query).view(
-            bs, num_query, self.num_heads, self.num_levels, self.num_points, 2,
+            bs,
+            num_query,
+            self.num_heads,
+            self.num_levels,
+            self.num_points,
+            2,
         )
         attention_weights = self.attention_weights(query).view(
-            bs, num_query, self.num_heads, self.num_levels * self.num_points,
+            bs,
+            num_query,
+            self.num_heads,
+            self.num_levels * self.num_points,
         )
         attention_weights = attention_weights.softmax(-1)
         attention_weights = attention_weights.view(
@@ -316,7 +330,8 @@ class MultiScaleDeformableAttention(nn.Module):
         # bs, num_query, num_heads, num_levels, num_points, 2
         if reference_points.shape[-1] == 2:
             offset_normalizer = torch.stack(
-                [spatial_shapes[..., 1], spatial_shapes[..., 0]], -1,
+                [spatial_shapes[..., 1], spatial_shapes[..., 0]],
+                -1,
             )
             sampling_locations = (
                 reference_points[:, :, None, :, None, :]
@@ -358,7 +373,10 @@ class MultiScaleDeformableAttention(nn.Module):
                 output = output.half()
         else:
             output = multi_scale_deformable_attn_pytorch(
-                value, spatial_shapes, sampling_locations, attention_weights,
+                value,
+                spatial_shapes,
+                sampling_locations,
+                attention_weights,
             )
 
         output = self.output_proj(output)
@@ -382,7 +400,8 @@ def create_dummy_class(klass, dependency, message=""):
         class: a class object
     """
     err = "Cannot import '{}', therefore '{}' is not available.".format(
-        dependency, klass,
+        dependency,
+        klass,
     )
     if message:
         err = err + " " + message
@@ -413,7 +432,8 @@ def create_dummy_func(func, dependency, message=""):
         function: a function object
     """
     err = "Cannot import '{}', therefore '{}' is not available.".format(
-        dependency, func,
+        dependency,
+        func,
     )
     if message:
         err = err + " " + message

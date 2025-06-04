@@ -83,10 +83,12 @@ def run_grounding(input_image, grounding_caption, box_threshold, text_threshold)
         device="cpu",
     )
     annotated_frame = annotate(
-        image_source=np.asarray(image_pil), boxes=boxes, logits=logits, phrases=phrases,
+        image_source=np.asarray(image_pil),
+        boxes=boxes,
+        logits=logits,
+        phrases=phrases,
     )
     return Image.fromarray(cv2.cvtColor(annotated_frame, cv2.COLOR_BGR2RGB))
-
 
 
 if __name__ == "__main__":
@@ -139,5 +141,8 @@ if __name__ == "__main__":
         )
 
     block.launch(
-        server_name="0.0.0.0", server_port=7579, debug=args.debug, share=args.share,
+        server_name="0.0.0.0",
+        server_port=7579,
+        debug=args.debug,
+        share=args.share,
     )

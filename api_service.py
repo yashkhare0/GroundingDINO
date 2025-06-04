@@ -156,7 +156,9 @@ async def lifespan(app: FastAPI):  # noqa: ANN201
             # Try to load the model with the selected device
             logger.info(f"Loading model with {DEVICE}")
             app.state.model = load_model(
-                str(CONFIG_PATH), str(MODEL_PATH), device=DEVICE,
+                str(CONFIG_PATH),
+                str(MODEL_PATH),
+                device=DEVICE,
             )
             logger.info("GroundingDINO model loaded successfully")
         except Exception as device_error:
@@ -166,7 +168,9 @@ async def lifespan(app: FastAPI):  # noqa: ANN201
                     f"Failed to load model with CUDA: {device_error}. Trying CPU instead.",
                 )
                 app.state.model = load_model(
-                    str(CONFIG_PATH), str(MODEL_PATH), device="cpu",
+                    str(CONFIG_PATH),
+                    str(MODEL_PATH),
+                    device="cpu",
                 )
                 logger.info("GroundingDINO model loaded successfully with CPU")
             else:
@@ -262,7 +266,8 @@ async def health_check() -> dict:
         except Exception as e:
             logger.error(f"CUDA health check failed: {e}")
             raise HTTPException(
-                status_code=503, detail=f"CUDA health check failed: {e}",
+                status_code=503,
+                detail=f"CUDA health check failed: {e}",
             ) from e
 
     logger.debug("Health check passed")
@@ -347,7 +352,8 @@ async def detect_objects(
     except Exception as e:
         logger.exception(f"Error during detection: {e}")
         raise HTTPException(
-            status_code=500, detail=f"Error processing image: {e!s}",
+            status_code=500,
+            detail=f"Error processing image: {e!s}",
         ) from e
 
 

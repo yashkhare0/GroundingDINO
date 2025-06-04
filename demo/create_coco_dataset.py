@@ -25,7 +25,6 @@ def main(
 
     dataset = fo.Dataset.from_images_dir(image_directory)
 
-
     if subsample is not None and subsample < len(dataset):
         dataset = dataset.take(subsample).clone()
 

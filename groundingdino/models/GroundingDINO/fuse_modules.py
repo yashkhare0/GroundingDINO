@@ -94,7 +94,9 @@ def func_attention(query, context, smooth=1, raw_feature_norm="softmax", eps=1e-
 
 
 class BiMultiHeadAttention(nn.Module):
-    def __init__(self, v_dim, l_dim, embed_dim, num_heads, dropout=0.1, cfg=None) -> None:
+    def __init__(
+        self, v_dim, l_dim, embed_dim, num_heads, dropout=0.1, cfg=None,
+    ) -> None:
         super(BiMultiHeadAttention, self).__init__()
 
         self.embed_dim = embed_dim
@@ -173,7 +175,8 @@ class BiMultiHeadAttention(nn.Module):
 
         src_len = key_states.size(1)
         attn_weights = torch.bmm(
-            query_states, key_states.transpose(1, 2),
+            query_states,
+            key_states.transpose(1, 2),
         )  # bs*nhead, nimg, ntxt
 
         if attn_weights.size() != (bsz * self.num_heads, tgt_len, src_len):
@@ -186,11 +189,13 @@ class BiMultiHeadAttention(nn.Module):
 
         if self.clamp_min_for_underflow:
             attn_weights = torch.clamp(
-                attn_weights, min=-50000,
+                attn_weights,
+                min=-50000,
             )  # Do not increase -50000, data type half has quite limited range
         if self.clamp_max_for_overflow:
             attn_weights = torch.clamp(
-                attn_weights, max=50000,
+                attn_weights,
+                max=50000,
             )  # Do not increase 50000, data type half has quite limited range
 
         attn_weights_T = attn_weights.transpose(1, 2)
@@ -199,11 +204,13 @@ class BiMultiHeadAttention(nn.Module):
         )
         if self.clamp_min_for_underflow:
             attn_weights_l = torch.clamp(
-                attn_weights_l, min=-50000,
+                attn_weights_l,
+                min=-50000,
             )  # Do not increase -50000, data type half has quite limited range
         if self.clamp_max_for_overflow:
             attn_weights_l = torch.clamp(
-                attn_weights_l, max=50000,
+                attn_weights_l,
+                max=50000,
             )  # Do not increase 50000, data type half has quite limited range
 
         # mask vison for language
@@ -294,17 +301,22 @@ class BiAttentionBlock(nn.Module):
         # add layer scale for training stability
         self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
         self.gamma_v = nn.Parameter(
-            init_values * torch.ones((v_dim)), requires_grad=True,
+            init_values * torch.ones((v_dim)),
+            requires_grad=True,
         )
         self.gamma_l = nn.Parameter(
-            init_values * torch.ones((l_dim)), requires_grad=True,
+            init_values * torch.ones((l_dim)),
+            requires_grad=True,
         )
 
     def forward(self, v, l, attention_mask_v=None, attention_mask_l=None):
         v = self.layer_norm_v(v)
         l = self.layer_norm_l(l)
         delta_v, delta_l = self.attn(
-            v, l, attention_mask_v=attention_mask_v, attention_mask_l=attention_mask_l,
+            v,
+            l,
+            attention_mask_v=attention_mask_v,
+            attention_mask_l=attention_mask_l,
         )
         # v, l = v + delta_v, l + delta_l
         v = v + self.drop_path(self.gamma_v * delta_v)

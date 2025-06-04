@@ -75,7 +75,12 @@ def window_reverse(windows, window_size, H, W):
     """
     B = int(windows.shape[0] / (H * W / window_size / window_size))
     x = windows.view(
-        B, H // window_size, W // window_size, window_size, window_size, -1,
+        B,
+        H // window_size,
+        W // window_size,
+        window_size,
+        window_size,
+        -1,
     )
     return x.permute(0, 1, 3, 2, 4, 5).contiguous().view(B, H, W, -1)
 
@@ -125,7 +130,9 @@ class WindowAttention(nn.Module):
             coords_flatten[:, :, None] - coords_flatten[:, None, :]
         )  # 2, Wh*Ww, Wh*Ww
         relative_coords = relative_coords.permute(
-            1, 2, 0,
+            1,
+            2,
+            0,
         ).contiguous()  # Wh*Ww, Wh*Ww, 2
         relative_coords[:, :, 0] += self.window_size[0] - 1  # shift to start from 0
         relative_coords[:, :, 1] += self.window_size[1] - 1
@@ -170,7 +177,9 @@ class WindowAttention(nn.Module):
             -1,
         )  # Wh*Ww,Wh*Ww,nH
         relative_position_bias = relative_position_bias.permute(
-            2, 0, 1,
+            2,
+            0,
+            1,
         ).contiguous()  # nH, Wh*Ww, Wh*Ww
         attn = attn + relative_position_bias.unsqueeze(0)
 
@@ -282,7 +291,9 @@ class SwinTransformerBlock(nn.Module):
         # cyclic shift
         if self.shift_size > 0:
             shifted_x = torch.roll(
-                x, shifts=(-self.shift_size, -self.shift_size), dims=(1, 2),
+                x,
+                shifts=(-self.shift_size, -self.shift_size),
+                dims=(1, 2),
             )
             attn_mask = mask_matrix
         else:
@@ -291,15 +302,19 @@ class SwinTransformerBlock(nn.Module):
 
         # partition windows
         x_windows = window_partition(
-            shifted_x, self.window_size,
+            shifted_x,
+            self.window_size,
         )  # nW*B, window_size, window_size, C
         x_windows = x_windows.view(
-            -1, self.window_size * self.window_size, C,
+            -1,
+            self.window_size * self.window_size,
+            C,
         )  # nW*B, window_size*window_size, C
 
         # W-MSA/SW-MSA
         attn_windows = self.attn(
-            x_windows, mask=attn_mask,
+            x_windows,
+            mask=attn_mask,
         )  # nW*B, window_size*window_size, C
 
         # merge windows
@@ -307,7 +322,13 @@ class SwinTransformerBlock(nn.Module):
         shifted_x = window_reverse(attn_windows, self.window_size, Hp, Wp)  # B H' W' C
 
         # reverse cyclic shift
-        x = torch.roll(shifted_x, shifts=(self.shift_size, self.shift_size), dims=(1, 2)) if self.shift_size > 0 else shifted_x
+        x = (
+            torch.roll(
+                shifted_x, shifts=(self.shift_size, self.shift_size), dims=(1, 2),
+            )
+            if self.shift_size > 0
+            else shifted_x
+        )
 
         if pad_r > 0 or pad_b > 0:
             x = x[:, :H, :W, :].contiguous()
@@ -317,7 +338,6 @@ class SwinTransformerBlock(nn.Module):
         # FFN
         x = shortcut + self.drop_path(x)
         return x + self.drop_path(self.mlp(self.norm2(x)))
-
 
 
 class PatchMerging(nn.Module):
@@ -358,7 +378,6 @@ class PatchMerging(nn.Module):
 
         x = self.norm(x)
         return self.reduction(x)
-
 
 
 class BasicLayer(nn.Module):
@@ -457,17 +476,23 @@ class BasicLayer(nn.Module):
                 cnt += 1
 
         mask_windows = window_partition(
-            img_mask, self.window_size,
+            img_mask,
+            self.window_size,
         )  # nW, window_size, window_size, 1
         mask_windows = mask_windows.view(-1, self.window_size * self.window_size)
         attn_mask = mask_windows.unsqueeze(1) - mask_windows.unsqueeze(2)
         attn_mask = attn_mask.masked_fill(attn_mask != 0, float(-100.0)).masked_fill(
-            attn_mask == 0, float(0.0),
+            attn_mask == 0,
+            float(0.0),
         )
 
         for blk in self.blocks:
             blk.H, blk.W = H, W
-            x = checkpoint.checkpoint(blk, x, attn_mask) if self.use_checkpoint else blk(x, attn_mask)
+            x = (
+                checkpoint.checkpoint(blk, x, attn_mask)
+                if self.use_checkpoint
+                else blk(x, attn_mask)
+            )
         if self.downsample is not None:
             x_down = self.downsample(x, H, W)
             Wh, Ww = (H + 1) // 2, (W + 1) // 2
@@ -494,7 +519,10 @@ class PatchEmbed(nn.Module):
         self.embed_dim = embed_dim
 
         self.proj = nn.Conv2d(
-            in_chans, embed_dim, kernel_size=patch_size, stride=patch_size,
+            in_chans,
+            embed_dim,
+            kernel_size=patch_size,
+            stride=patch_size,
         )
         if norm_layer is not None:
             self.norm = norm_layer(embed_dim)
@@ -709,7 +737,9 @@ class SwinTransformer(nn.Module):
         if self.ape:
             # interpolate the position embedding to the corresponding size
             absolute_pos_embed = F.interpolate(
-                self.absolute_pos_embed, size=(Wh, Ww), mode="bicubic",
+                self.absolute_pos_embed,
+                size=(Wh, Ww),
+                mode="bicubic",
             )
             x = (x + absolute_pos_embed).flatten(2).transpose(1, 2)  # B Wh*Ww C
         else:
@@ -749,7 +779,9 @@ class SwinTransformer(nn.Module):
         if self.ape:
             # interpolate the position embedding to the corresponding size
             absolute_pos_embed = F.interpolate(
-                self.absolute_pos_embed, size=(Wh, Ww), mode="bicubic",
+                self.absolute_pos_embed,
+                size=(Wh, Ww),
+                mode="bicubic",
             )
             x = (x + absolute_pos_embed).flatten(2).transpose(1, 2)  # B Wh*Ww C
         else:
@@ -806,10 +838,16 @@ def build_swin_transformer(modelname, pretrain_img_size, **kw):
 
     model_para_dict = {
         "swin_T_224_1k": {
-            "embed_dim": 96, "depths": [2, 2, 6, 2], "num_heads": [3, 6, 12, 24], "window_size": 7,
+            "embed_dim": 96,
+            "depths": [2, 2, 6, 2],
+            "num_heads": [3, 6, 12, 24],
+            "window_size": 7,
         },
         "swin_B_224_22k": {
-            "embed_dim": 128, "depths": [2, 2, 18, 2], "num_heads": [4, 8, 16, 32], "window_size": 7,
+            "embed_dim": 128,
+            "depths": [2, 2, 18, 2],
+            "num_heads": [4, 8, 16, 32],
+            "window_size": 7,
         },
         "swin_B_384_22k": {
             "embed_dim": 128,

@@ -35,7 +35,9 @@ def clean_state_dict(state_dict):
 
 
 def renorm(
-    img: torch.FloatTensor, mean=None, std=None,
+    img: torch.FloatTensor,
+    mean=None,
+    std=None,
 ) -> torch.FloatTensor:
     # img: tensor(3,H,W) or tensor(B,3,H,W)
     # return: same as img
@@ -192,7 +194,11 @@ def get_gaussian_mean(x, axis, other_axis, softmax=True):
     """
     mat2line = torch.sum(x, axis=other_axis)
     # mat2line = mat2line / mat2line.mean() * 10
-    u = torch.softmax(mat2line, axis=2) if softmax else mat2line / (mat2line.sum(2, keepdim=True) + 1e-06)
+    u = (
+        torch.softmax(mat2line, axis=2)
+        if softmax
+        else mat2line / (mat2line.sum(2, keepdim=True) + 1e-06)
+    )
     size = x.shape[axis]
     ind = torch.linspace(0, 1, size).to(x.device)
     batch = x.shape[0]
@@ -272,8 +278,10 @@ def get_embedder(multires, i=0):
     }
 
     embedder_obj = Embedder(**embed_kwargs)
+
     def embed(x, eo=embedder_obj):
         return eo.embed(x)
+
     return embed, embedder_obj.out_dim
 
 
@@ -493,7 +501,8 @@ class ModelEma(torch.nn.Module):
     def _update(self, model, update_fn) -> None:
         with torch.no_grad():
             for ema_v, model_v in zip(
-                self.module.state_dict().values(), model.state_dict().values(),
+                self.module.state_dict().values(),
+                model.state_dict().values(),
             ):
                 if self.device is not None:
                     model_v = model_v.to(device=self.device)
@@ -501,7 +510,8 @@ class ModelEma(torch.nn.Module):
 
     def update(self, model) -> None:
         self._update(
-            model, update_fn=lambda e, m: self.decay * e + (1.0 - self.decay) * m,
+            model,
+            update_fn=lambda e, m: self.decay * e + (1.0 - self.decay) * m,
         )
 
     def set(self, model) -> None:

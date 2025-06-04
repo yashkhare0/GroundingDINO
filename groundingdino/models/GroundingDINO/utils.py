@@ -46,7 +46,8 @@ def get_sine_pos_embed(
     def sine_func(x: torch.Tensor):
         sin_x = x * scale / dim_t
         return torch.stack(
-            (sin_x[..., 0::2].sin(), sin_x[..., 1::2].cos()), dim=3,
+            (sin_x[..., 0::2].sin(), sin_x[..., 1::2].cos()),
+            dim=3,
         ).flatten(2)
 
     pos_res = [
@@ -58,7 +59,10 @@ def get_sine_pos_embed(
 
 
 def gen_encoder_output_proposals(
-    memory: Tensor, memory_padding_mask: Tensor, spatial_shapes: Tensor, learnedwh=None,
+    memory: Tensor,
+    memory_padding_mask: Tensor,
+    spatial_shapes: Tensor,
+    learnedwh=None,
 ):
     r"""
     Input:
@@ -75,7 +79,10 @@ def gen_encoder_output_proposals(
     _cur = 0
     for lvl, (H_, W_) in enumerate(spatial_shapes):
         mask_flatten_ = memory_padding_mask[:, _cur : (_cur + H_ * W_)].view(
-            N_, H_, W_, 1,
+            N_,
+            H_,
+            W_,
+            1,
         )
         valid_H = torch.sum(~mask_flatten_[:, :, 0, 0], 1)
         valid_W = torch.sum(~mask_flatten_[:, 0, :, 0], 1)
@@ -89,7 +96,10 @@ def gen_encoder_output_proposals(
         grid = torch.cat([grid_x.unsqueeze(-1), grid_y.unsqueeze(-1)], -1)  # H_, W_, 2
 
         scale = torch.cat([valid_W.unsqueeze(-1), valid_H.unsqueeze(-1)], 1).view(
-            N_, 1, 1, 2,
+            N_,
+            1,
+            1,
+            2,
         )
         grid = (grid.unsqueeze(0).expand(N_, -1, -1, -1) + 0.5) / scale
 
@@ -112,15 +122,18 @@ def gen_encoder_output_proposals(
     ).all(-1, keepdim=True)
     output_proposals = torch.log(output_proposals / (1 - output_proposals))  # unsigmoid
     output_proposals = output_proposals.masked_fill(
-        memory_padding_mask.unsqueeze(-1), float("inf"),
+        memory_padding_mask.unsqueeze(-1),
+        float("inf"),
     )
     output_proposals = output_proposals.masked_fill(
-        ~output_proposals_valid, float("inf"),
+        ~output_proposals_valid,
+        float("inf"),
     )
 
     output_memory = memory
     output_memory = output_memory.masked_fill(
-        memory_padding_mask.unsqueeze(-1), float(0),
+        memory_padding_mask.unsqueeze(-1),
+        float(0),
     )
     output_memory = output_memory.masked_fill(~output_proposals_valid, float(0))
 
@@ -132,7 +145,11 @@ def gen_encoder_output_proposals(
 
 class RandomBoxPerturber:
     def __init__(
-        self, x_noise_scale=0.2, y_noise_scale=0.2, w_noise_scale=0.2, h_noise_scale=0.2,
+        self,
+        x_noise_scale=0.2,
+        y_noise_scale=0.2,
+        w_noise_scale=0.2,
+        h_noise_scale=0.2,
     ) -> None:
         self.noise_scale = torch.Tensor(
             [x_noise_scale, y_noise_scale, w_noise_scale, h_noise_scale],
@@ -231,10 +248,12 @@ def gen_sineembed_for_position(pos_tensor):
     pos_x = x_embed[:, :, None] / dim_t
     pos_y = y_embed[:, :, None] / dim_t
     pos_x = torch.stack(
-        (pos_x[:, :, 0::2].sin(), pos_x[:, :, 1::2].cos()), dim=3,
+        (pos_x[:, :, 0::2].sin(), pos_x[:, :, 1::2].cos()),
+        dim=3,
     ).flatten(2)
     pos_y = torch.stack(
-        (pos_y[:, :, 0::2].sin(), pos_y[:, :, 1::2].cos()), dim=3,
+        (pos_y[:, :, 0::2].sin(), pos_y[:, :, 1::2].cos()),
+        dim=3,
     ).flatten(2)
     if pos_tensor.size(-1) == 2:
         pos = torch.cat((pos_y, pos_x), dim=2)
@@ -242,13 +261,15 @@ def gen_sineembed_for_position(pos_tensor):
         w_embed = pos_tensor[:, :, 2] * scale
         pos_w = w_embed[:, :, None] / dim_t
         pos_w = torch.stack(
-            (pos_w[:, :, 0::2].sin(), pos_w[:, :, 1::2].cos()), dim=3,
+            (pos_w[:, :, 0::2].sin(), pos_w[:, :, 1::2].cos()),
+            dim=3,
         ).flatten(2)
 
         h_embed = pos_tensor[:, :, 3] * scale
         pos_h = h_embed[:, :, None] / dim_t
         pos_h = torch.stack(
-            (pos_h[:, :, 0::2].sin(), pos_h[:, :, 1::2].cos()), dim=3,
+            (pos_h[:, :, 0::2].sin(), pos_h[:, :, 1::2].cos()),
+            dim=3,
         ).flatten(2)
 
         pos = torch.cat((pos_y, pos_x, pos_w, pos_h), dim=2)
@@ -290,7 +311,9 @@ class ContrastiveEmbed(nn.Module):
 
         # padding to max_text_len
         new_res = torch.full(
-            (*res.shape[:-1], self.max_text_len), float("-inf"), device=res.device,
+            (*res.shape[:-1], self.max_text_len),
+            float("-inf"),
+            device=res.device,
         )
         new_res[..., : res.shape[-1]] = res
 

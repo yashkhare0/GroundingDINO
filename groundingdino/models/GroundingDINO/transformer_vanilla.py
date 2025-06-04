@@ -27,7 +27,12 @@ from .utils import (
 
 class TextTransformer(nn.Module):
     def __init__(
-        self, num_layers, d_model=256, nheads=8, dim_feedforward=2048, dropout=0.1,
+        self,
+        num_layers,
+        d_model=256,
+        nheads=8,
+        dim_feedforward=2048,
+        dropout=0.1,
     ) -> None:
         super().__init__()
         self.num_layers = num_layers

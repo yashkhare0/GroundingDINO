@@ -32,7 +32,11 @@ class PositionEmbeddingSine(nn.Module):
     """
 
     def __init__(
-        self, num_pos_feats=64, temperature=10000, normalize=False, scale=None,
+        self,
+        num_pos_feats=64,
+        temperature=10000,
+        normalize=False,
+        scale=None,
     ) -> None:
         super().__init__()
         self.num_pos_feats = num_pos_feats
@@ -66,10 +70,12 @@ class PositionEmbeddingSine(nn.Module):
         pos_x = x_embed[:, :, :, None] / dim_t
         pos_y = y_embed[:, :, :, None] / dim_t
         pos_x = torch.stack(
-            (pos_x[:, :, :, 0::2].sin(), pos_x[:, :, :, 1::2].cos()), dim=4,
+            (pos_x[:, :, :, 0::2].sin(), pos_x[:, :, :, 1::2].cos()),
+            dim=4,
         ).flatten(3)
         pos_y = torch.stack(
-            (pos_y[:, :, :, 0::2].sin(), pos_y[:, :, :, 1::2].cos()), dim=4,
+            (pos_y[:, :, :, 0::2].sin(), pos_y[:, :, :, 1::2].cos()),
+            dim=4,
         ).flatten(3)
         return torch.cat((pos_y, pos_x), dim=3).permute(0, 3, 1, 2)
 
@@ -127,15 +133,16 @@ class PositionEmbeddingSineHW(nn.Module):
         pos_y = y_embed[:, :, :, None] / dim_ty
 
         pos_x = torch.stack(
-            (pos_x[:, :, :, 0::2].sin(), pos_x[:, :, :, 1::2].cos()), dim=4,
+            (pos_x[:, :, :, 0::2].sin(), pos_x[:, :, :, 1::2].cos()),
+            dim=4,
         ).flatten(3)
         pos_y = torch.stack(
-            (pos_y[:, :, :, 0::2].sin(), pos_y[:, :, :, 1::2].cos()), dim=4,
+            (pos_y[:, :, :, 0::2].sin(), pos_y[:, :, :, 1::2].cos()),
+            dim=4,
         ).flatten(3)
         return torch.cat((pos_y, pos_x), dim=3).permute(0, 3, 1, 2)
 
         # import ipdb; ipdb.set_trace()
-
 
 
 class PositionEmbeddingLearned(nn.Module):

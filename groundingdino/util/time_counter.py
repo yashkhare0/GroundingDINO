@@ -55,5 +55,9 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
     def __str__(self) -> str:
-        fmtstr = "{name} {val" + self.fmt + "}" if self.val_only else "{name} {val" + self.fmt + "} ({avg" + self.fmt + "})"
+        fmtstr = (
+            "{name} {val" + self.fmt + "}"
+            if self.val_only
+            else "{name} {val" + self.fmt + "} ({avg" + self.fmt + "})"
+        )
         return fmtstr.format(**self.__dict__)

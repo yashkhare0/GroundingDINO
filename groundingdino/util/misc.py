@@ -149,7 +149,9 @@ def all_gather_cpu(data):
         tensor_list.append(torch.empty((max_size,), dtype=torch.uint8, device=device))
     if local_size != max_size:
         padding = torch.empty(
-            size=(max_size - local_size,), dtype=torch.uint8, device=device,
+            size=(max_size - local_size,),
+            dtype=torch.uint8,
+            device=device,
         )
         tensor = torch.cat((tensor, padding), dim=0)
     if cpu_group is None:
@@ -203,7 +205,9 @@ def all_gather(data):
         tensor_list.append(torch.empty((max_size,), dtype=torch.uint8, device="cuda"))
     if local_size != max_size:
         padding = torch.empty(
-            size=(max_size - local_size,), dtype=torch.uint8, device="cuda",
+            size=(max_size - local_size,),
+            dtype=torch.uint8,
+            device="cuda",
         )
         tensor = torch.cat((tensor, padding), dim=0)
     dist.all_gather(tensor_list, tensor)
@@ -351,7 +355,9 @@ class MetricLogger(object):
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         print_func(
             "{} Total time: {} ({:.4f} s / it)".format(
-                header, total_time_str, total_time / len(iterable),
+                header,
+                total_time_str,
+                total_time / len(iterable),
             ),
         )
 
@@ -405,7 +411,8 @@ class NestedTensor(object):
             else:
                 raise ValueError(
                     "tensors dim must be 3 or 4 but {}({})".format(
-                        self.tensors.dim(), self.tensors.shape,
+                        self.tensors.dim(),
+                        self.tensors.shape,
                     ),
                 )
 
@@ -514,13 +521,17 @@ def _onnx_nested_tensor_from_tensor_list(tensor_list: List[Tensor]) -> NestedTen
     for img in tensor_list:
         padding = [(s1 - s2) for s1, s2 in zip(max_size, tuple(img.shape))]
         padded_img = torch.nn.functional.pad(
-            img, (0, padding[2], 0, padding[1], 0, padding[0]),
+            img,
+            (0, padding[2], 0, padding[1], 0, padding[0]),
         )
         padded_imgs.append(padded_img)
 
         m = torch.zeros_like(img[0], dtype=torch.int, device=img.device)
         padded_mask = torch.nn.functional.pad(
-            m, (0, padding[2], 0, padding[1]), "constant", 1,
+            m,
+            (0, padding[2], 0, padding[1]),
+            "constant",
+            1,
         )
         padded_masks.append(padded_mask.to(torch.bool))
 
@@ -649,7 +660,11 @@ def accuracy_onehot(pred, gt):
 
 
 def interpolate(
-    input, size=None, scale_factor=None, mode="nearest", align_corners=None,
+    input,
+    size=None,
+    scale_factor=None,
+    mode="nearest",
+    align_corners=None,
 ):
     # type: (Tensor, Optional[List[int]], Optional[float], str, Optional[bool]) -> Tensor
     """
@@ -660,7 +675,11 @@ def interpolate(
     if __torchvision_need_compat_flag < 0.7:
         if input.numel() > 0:
             return torch.nn.functional.interpolate(
-                input, size, scale_factor, mode, align_corners,
+                input,
+                size,
+                scale_factor,
+                mode,
+                align_corners,
             )
 
         output_shape = _output_size(2, input, size, scale_factor)
@@ -668,7 +687,11 @@ def interpolate(
         return _new_empty_tensor(input, output_shape)
     else:
         return torchvision.ops.misc.interpolate(
-            input, size, scale_factor, mode, align_corners,
+            input,
+            size,
+            scale_factor,
+            mode,
+            align_corners,
         )
 
 

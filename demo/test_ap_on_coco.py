@@ -21,7 +21,9 @@ from groundingdino.util.vl_utils import (
 
 
 def load_model(
-    model_config_path: str, model_checkpoint_path: str, device: str = "cuda",
+    model_config_path: str,
+    model_checkpoint_path: str,
+    device: str = "cuda",
 ):
     args = SLConfig.fromfile(model_config_path)
     args.device = device
@@ -77,7 +79,8 @@ class PostProcessCocoGrounding(nn.Module):
         captions, cat2tokenspan = build_captions_and_token_span(cat_list, True)
         tokenspanlist = [cat2tokenspan[cat] for cat in cat_list]
         positive_map = create_positive_map_from_span(
-            tokenlizer(captions), tokenspanlist,
+            tokenlizer(captions),
+            tokenspanlist,
         )  # 80, 256. normed
 
         id_map = {
@@ -195,7 +198,9 @@ class PostProcessCocoGrounding(nn.Module):
 
         prob = prob_to_label
         topk_values, topk_indexes = torch.topk(
-            prob.view(out_logits.shape[0], -1), num_select, dim=1,
+            prob.view(out_logits.shape[0], -1),
+            num_select,
+            dim=1,
         )
         scores = topk_values
         topk_boxes = topk_indexes // prob.shape[2]
@@ -214,7 +219,6 @@ class PostProcessCocoGrounding(nn.Module):
             {"scores": s, "labels": l, "boxes": b}
             for s, l, b in zip(scores, labels, boxes)
         ]
-
 
 
 def main(args) -> None:
@@ -246,7 +250,8 @@ def main(args) -> None:
     # build post processor
     tokenlizer = get_tokenlizer.get_tokenlizer(cfg.text_encoder_type)
     postprocessor = PostProcessCocoGrounding(
-        coco_api=dataset.coco, tokenlizer=tokenlizer,
+        coco_api=dataset.coco,
+        tokenlizer=tokenlizer,
     )
 
     # build evaluator
@@ -286,12 +291,15 @@ def main(args) -> None:
     evaluator.summarize()
 
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("Grounding DINO eval on COCO", add_help=True)
     # load model
     parser.add_argument(
-        "--config_file", "-c", type=str, required=True, help="path to config file",
+        "--config_file",
+        "-c",
+        type=str,
+        required=True,
+        help="path to config file",
     )
     parser.add_argument(
         "--checkpoint_path",
@@ -301,19 +309,28 @@ if __name__ == "__main__":
         help="path to checkpoint file",
     )
     parser.add_argument(
-        "--device", type=str, default="cuda", help="running device (default: cuda)",
+        "--device",
+        type=str,
+        default="cuda",
+        help="running device (default: cuda)",
     )
 
     # post processing
     parser.add_argument(
-        "--num_select", type=int, default=300, help="number of topk to select",
+        "--num_select",
+        type=int,
+        default=300,
+        help="number of topk to select",
     )
 
     # coco info
     parser.add_argument("--anno_path", type=str, required=True, help="coco root")
     parser.add_argument("--image_dir", type=str, required=True, help="coco image dir")
     parser.add_argument(
-        "--num_workers", type=int, default=4, help="number of workers for dataloader",
+        "--num_workers",
+        type=int,
+        default=4,
+        help="number of workers for dataloader",
     )
     args = parser.parse_args()
 

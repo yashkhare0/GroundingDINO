@@ -20,7 +20,9 @@ from pycocotools import mask as maskUtils
 
 
 def renorm(
-    img: torch.FloatTensor, mean=None, std=None,
+    img: torch.FloatTensor,
+    mean=None,
+    std=None,
 ) -> torch.FloatTensor:
     # img: tensor(3,H,W) or tensor(B,3,H,W)
     # return: same as img
@@ -123,7 +125,9 @@ class COCOVisualizer:
 
         if caption is None:
             savename = "{}/{}-{}.png".format(
-                savedir, int(image_id), str(datetime.datetime.now()).replace(" ", "-"),
+                savedir,
+                int(image_id),
+                str(datetime.datetime.now()).replace(" ", "-"),
             )
         else:
             savename = "{}/{}-{}-{}.png".format(
@@ -263,7 +267,9 @@ class COCOVisualizer:
                         t = self.imgs[ann["image_id"]]
                         if type(ann["segmentation"]["counts"]) == list:
                             rle = maskUtils.frPyObjects(
-                                [ann["segmentation"]], t["height"], t["width"],
+                                [ann["segmentation"]],
+                                t["height"],
+                                t["width"],
                             )
                         else:
                             rle = [ann["segmentation"]]
@@ -320,7 +326,10 @@ class COCOVisualizer:
             # p = PatchCollection(polygons, facecolor=color, linewidths=0, alpha=0.4)
             # ax.add_collection(p)
             p = PatchCollection(
-                polygons, facecolor="none", edgecolors=color, linewidths=2,
+                polygons,
+                facecolor="none",
+                edgecolors=color,
+                linewidths=2,
             )
             ax.add_collection(p)
             return None
