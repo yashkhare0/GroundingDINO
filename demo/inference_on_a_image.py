@@ -75,14 +75,27 @@ def load_model(model_config_path, model_checkpoint_path, cpu_only=False):
     args.device = "cuda" if not cpu_only else "cpu"
     model = build_model(args)
     checkpoint = torch.load(model_checkpoint_path, map_location="cpu")
-    load_res = model.load_state_dict(clean_state_dict(checkpoint["model"]), strict=False)
+    load_res = model.load_state_dict(
+        clean_state_dict(checkpoint["model"]), strict=False
+    )
     print(load_res)
     _ = model.eval()
     return model
 
 
-def get_grounding_output(model, image, caption, box_threshold, text_threshold=None, with_logits=True, cpu_only=False, token_spans=None):
-    assert text_threshold is not None or token_spans is not None, "text_threshould and token_spans should not be None at the same time!"
+def get_grounding_output(
+    model,
+    image,
+    caption,
+    box_threshold,
+    text_threshold=None,
+    with_logits=True,
+    cpu_only=False,
+    token_spans=None,
+):
+    assert (
+        text_threshold is not None or token_spans is not None
+    ), "text_threshould and token_spans should not be None at the same time!"
     caption = caption.lower()
     caption = caption.strip()
     if not caption.endswith("."):
@@ -109,7 +122,9 @@ def get_grounding_output(model, image, caption, box_threshold, text_threshold=No
         # build pred
         pred_phrases = []
         for logit, box in zip(logits_filt, boxes_filt):
-            pred_phrase = get_phrases_from_posmap(logit > text_threshold, tokenized, tokenlizer)
+            pred_phrase = get_phrases_from_posmap(
+                logit > text_threshold, tokenized, tokenlizer
+            )
             if with_logits:
                 pred_phrases.append(pred_phrase + f"({str(logit.max().item())[:4]})")
             else:
@@ -117,17 +132,18 @@ def get_grounding_output(model, image, caption, box_threshold, text_threshold=No
     else:
         # given-phrase mode
         positive_maps = create_positive_map_from_span(
-            model.tokenizer(text_prompt),
-            token_span=token_spans
-        ).to(image.device) # n_phrase, 256
+            model.tokenizer(text_prompt), token_span=token_spans
+        ).to(
+            image.device
+        )  # n_phrase, 256
 
-        logits_for_phrases = positive_maps @ logits.T # n_phrase, nq
+        logits_for_phrases = positive_maps @ logits.T  # n_phrase, nq
         all_logits = []
         all_phrases = []
         all_boxes = []
-        for (token_span, logit_phr) in zip(token_spans, logits_for_phrases):
+        for token_span, logit_phr in zip(token_spans, logits_for_phrases):
             # get phrase
-            phrase = ' '.join([caption[_s:_e] for (_s, _e) in token_span])
+            phrase = " ".join([caption[_s:_e] for (_s, _e) in token_span])
             # get mask
             filt_mask = logit_phr > box_threshold
             # filt box
@@ -136,12 +152,13 @@ def get_grounding_output(model, image, caption, box_threshold, text_threshold=No
             all_logits.append(logit_phr[filt_mask])
             if with_logits:
                 logit_phr_num = logit_phr[filt_mask]
-                all_phrases.extend([phrase + f"({str(logit.item())[:4]})" for logit in logit_phr_num])
+                all_phrases.extend(
+                    [phrase + f"({str(logit.item())[:4]})" for logit in logit_phr_num]
+                )
             else:
                 all_phrases.extend([phrase for _ in range(len(filt_mask))])
         boxes_filt = torch.cat(all_boxes, dim=0).cpu()
         pred_phrases = all_phrases
-
 
     return boxes_filt, pred_phrases
 
@@ -149,26 +166,51 @@ def get_grounding_output(model, image, caption, box_threshold, text_threshold=No
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser("Grounding DINO example", add_help=True)
-    parser.add_argument("--config_file", "-c", type=str, required=True, help="path to config file")
     parser.add_argument(
-        "--checkpoint_path", "-p", type=str, required=True, help="path to checkpoint file"
+        "--config_file", "-c", type=str, required=True, help="path to config file"
     )
-    parser.add_argument("--image_path", "-i", type=str, required=True, help="path to image file")
-    parser.add_argument("--text_prompt", "-t", type=str, required=True, help="text prompt")
     parser.add_argument(
-        "--output_dir", "-o", type=str, default="outputs", required=True, help="output directory"
+        "--checkpoint_path",
+        "-p",
+        type=str,
+        required=True,
+        help="path to checkpoint file",
+    )
+    parser.add_argument(
+        "--image_path", "-i", type=str, required=True, help="path to image file"
+    )
+    parser.add_argument(
+        "--text_prompt", "-t", type=str, required=True, help="text prompt"
+    )
+    parser.add_argument(
+        "--output_dir",
+        "-o",
+        type=str,
+        default="outputs",
+        required=True,
+        help="output directory",
     )
 
-    parser.add_argument("--box_threshold", type=float, default=0.3, help="box threshold")
-    parser.add_argument("--text_threshold", type=float, default=0.25, help="text threshold")
-    parser.add_argument("--token_spans", type=str, default=None, help=
-                        "The positions of start and end positions of phrases of interest. \
+    parser.add_argument(
+        "--box_threshold", type=float, default=0.3, help="box threshold"
+    )
+    parser.add_argument(
+        "--text_threshold", type=float, default=0.25, help="text threshold"
+    )
+    parser.add_argument(
+        "--token_spans",
+        type=str,
+        default=None,
+        help="The positions of start and end positions of phrases of interest. \
                         For example, a caption is 'a cat and a dog', \
                         if you would like to detect 'cat', the token_spans should be '[[[2, 5]], ]', since 'a cat and a dog'[2:5] is 'cat'. \
                         if you would like to detect 'a cat', the token_spans should be '[[[0, 1], [2, 5]], ]', since 'a cat and a dog'[0:1] is 'a', and 'a cat and a dog'[2:5] is 'cat'. \
-                        ")
+                        ",
+    )
 
-    parser.add_argument("--cpu-only", action="store_true", help="running on cpu only!, default=False")
+    parser.add_argument(
+        "--cpu-only", action="store_true", help="running on cpu only!, default=False"
+    )
     args = parser.parse_args()
 
     # cfg
@@ -196,10 +238,15 @@ if __name__ == "__main__":
         text_threshold = None
         print("Using token_spans. Set the text_threshold to None.")
 
-
     # run model
     boxes_filt, pred_phrases = get_grounding_output(
-        model, image, text_prompt, box_threshold, text_threshold, cpu_only=args.cpu_only, token_spans=eval(f"{token_spans}")
+        model,
+        image,
+        text_prompt,
+        box_threshold,
+        text_threshold,
+        cpu_only=args.cpu_only,
+        token_spans=eval(f"{token_spans}"),
     )
 
     # visualize pred
